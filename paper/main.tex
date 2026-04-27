@@ -9,8 +9,8 @@
 \usepackage{xcolor}
 \usepackage{hyperref}
 
-\title{On-Device Reasoning for GPS-Denied Drones:\\
-Coupling Gemini Nano with MPC, Visual SLAM, and a 1D Range Sensor}
+\title{An On-Device Small Language Model as a Real-Time Flight
+       Advisor:\\Beating a Hand-Coded Rule Tree on a GPS-Denied Drone}
 
 \author{\IEEEauthorblockN{Anonymous}
 \IEEEauthorblockA{Affiliation\\
@@ -20,17 +20,24 @@ email@example.com}}
 \maketitle
 
 \begin{abstract}
-We present a navigation stack for GPS-denied micro-drones that fuses
-monocular visual SLAM, a single-beam 1D range sensor, and a nonlinear
-model predictive controller (MPC), and is supervised by an on-device
-small language model (Gemini Nano). The 1D range sensor provides
-metric-scale recovery for monocular SLAM and a hard floor on ground
-clearance; the MPC is perception-aware, softly preferring trajectories
-that preserve feature visibility and beam validity; Gemini Nano runs
-at 1--5\,Hz as an advisory layer that adapts mission-level behavior
-when SLAM degrades. We evaluate the system in simulation across four
-scenarios and four ablations, reporting absolute trajectory error,
-mission completion rate, minimum clearance, and on-device latency.
+Drone autonomy stacks accumulate hand-written if/else trees as new
+sensors and failure modes are added; the rule matrix grows
+quadratically and becomes hard to test exhaustively. We replace this
+tree with an on-device small language model (SLM) that runs at
+0.5--2\,Hz, consumes a structured health observation, and emits a
+structured action covering mission mode, waypoint nudges, MPC weight
+overrides, and per-sensor trust. A separate safety supervisor clamps
+every field of the SLM's action to a verified envelope, so the LLM
+is contextual judgment but never the safety authority. We
+empirically compare the SLM advisor against an effort-matched
+rule-tree advisor consuming the identical observation, on
+GPS-denied scenarios in Gazebo Harmonic with ORB-SLAM3
+mono-inertial, a 1D rangefinder for monocular scale recovery, a
+passive acoustic backup, and a perception-aware MPC. We report
+mission completion, collision count, action quality vs
+ground-truth, and clamp frequency. The system runs on a Raspberry
+Pi\,5 with the AI HAT+ at 15--18\,W with the SLM (Gemma\,3\,1B
+Q4\_K\_M) ticking in 0.3--0.6\,s.
 \end{abstract}
 
 \input{sections/01_introduction}

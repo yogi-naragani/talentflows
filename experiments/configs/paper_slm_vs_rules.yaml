@@ -1,0 +1,49 @@
+# Experiment matrix for the "On-Device SLM as a Real-Time Flight
+# Advisor" paper. The central comparison is (advisor=slm) vs
+# (advisor=rule_tree) with everything else held fixed.
+
+central_comparison:
+  - name: slm
+    advisor: slm
+    slm_backend: llama_cpp_gemma3_1b
+  - name: rule_tree
+    advisor: rule_tree
+
+scenarios:
+  # In-distribution: the rule tree was tuned on these.
+  - corridor_white_wall
+  - illumination_drop
+  - acoustic_alarm_front
+  - low_battery_far_from_origin
+  # Out-of-distribution: the rule tree was NOT tuned on these.
+  - dual_failure_slam_and_range          # both fail concurrently
+  - intermittent_acoustic_with_recovery   # alarm flickers on/off
+  - texture_mask_during_yaw_sweep         # compound failure
+  - novel_clutter_pattern                  # not in any tuning set
+
+trials_per_cell: 25
+seeds: [0, 1, 2, 3, 4]
+
+metrics:
+  - mission_completion_rate
+  - collision_count
+  - safety_clamp_frequency           # how often the supervisor had to override
+  - action_quality_vs_oracle         # offline label of best action
+  - tick_latency_ms                  # advisor wall-clock per tick
+  - mode_entropy                     # behavioral diversity
+  - generalization_gap               # in-dist - OOD performance
+
+baselines:
+  - name: rule_tree_tuned_per_scenario
+    description: rule tree thresholds re-tuned per scenario; upper
+                 bound for what a hand-coded baseline can achieve
+  - name: slm_no_few_shot
+    description: SLM with system prompt only, no few-shot examples
+  - name: slm_smaller_model
+    description: SLM with a 350M-param model (Qwen 0.5B) for the
+                 latency / quality tradeoff curve
+
+primary_claim: |
+  The SLM advisor matches or beats the rule tree on in-distribution
+  scenarios and outperforms it on out-of-distribution scenarios,
+  while keeping safety clamp frequency comparable.

@@ -1,26 +1,56 @@
 \section{Introduction}
 \label{sec:intro}
 
-GPS-denied flight is the common case for indoor inspection, subterranean
-mapping, and contested outdoor operation. The classical recipe pairs
-visual-inertial SLAM with a nonlinear controller, but two long-standing
-weaknesses remain: monocular SLAM is scale-ambiguous, and purely
-geometric stacks have no graceful response when tracking degrades.
+Every additional sensor or failure mode on an autonomous drone tends
+to spawn a new branch in a supervisor's if/else tree. With three SLAM
+states, two range states, four acoustic-alarm levels, four battery
+bands, and three mission phases the tree has 288 leaves; adding a
+single ``IMU vibration high'' axis doubles it. The tree is fast and
+verifiable in isolation but hard to test exhaustively, and its
+quality saturates at the engineer's anticipation of corner cases.
 
-We address both with minimal added hardware and on-device compute.
-First, a single-beam 1D range sensor (a low-cost ToF or radar
-altimeter) supplies a metric-scale anchor and a clearance floor.
-Second, an on-device small language model -- Gemini Nano -- supervises
-the stack at low rate, proposing mission-level adjustments (slow,
-hover, return, or re-explore) from a compact JSON state summary.
+This paper asks: \emph{can a small on-device language model replace
+the rule tree, given the same observation and the same hard safety
+envelope?}
+
+We split the supervisor into three layers. A \textbf{Monitor}
+aggregates raw signals into a structured observation: pose, velocity,
+SLAM tracking flag and inlier trend, range valid-ratio, per-direction
+acoustic proximity, battery, IMU vibration, motor saturation, and
+recent action history. The Monitor performs no policy logic. An
+\textbf{advisor} -- either a small language model (Gemini Nano on
+Pixel; a Gemini Nano-class SLM such as Gemma\,3\,1B via
+\texttt{llama.cpp} on Raspberry Pi\,5 + AI HAT+) or a hand-coded
+rule tree -- consumes the observation and emits a structured action.
+A \textbf{SafetySupervisor} clamps every field of the action to a
+verified envelope (mode whitelist, speed cap, waypoint-delta norm,
+altitude floor, geofence, weight and trust ranges). Battery
+thresholds override the advisor.
+
+The split lets us swap advisors and run a controlled comparison: the
+sensors, MPC, fusion, and safety layer are identical; only the
+decision policy changes. Both advisors emit the same JSON action
+schema and consume the same JSON observation, so the experimental
+matrix is genuine.
 
 \paragraph{Contributions.}
 \begin{itemize}
-\item A compact perception-aware MPC formulation that incorporates a
-  beam-validity term alongside feature visibility.
-\item A windowed scale-recovery scheme that uses the 1D range sensor
-  against the locally planar ground assumption.
-\item An on-device reasoning interface for Gemini Nano that is strictly
-  advisory and bounded by safety constraints.
-\item Simulation ablations isolating the contribution of each component.
+\item A three-layer supervisor design (Monitor / advisor /
+  SafetySupervisor) that lets the on-device LLM be contextual
+  judgment without being the safety authority.
+\item A controlled empirical comparison between an SLM advisor and
+  an effort-matched rule-tree advisor, with the rule tree following
+  the identical decision guidance written into the SLM's system
+  prompt.
+\item Measured on-device performance on Raspberry Pi\,5 + Hailo
+  AI HAT+: 15--18\,W total compute power, 0.3--0.6\,s SLM tick at
+  Gemma\,3\,1B Q4\_K\_M.
+\item Open-source ROS\,2 release with a Gazebo Harmonic harness
+  configured for SLAM dropout and acoustic alarm scenarios.
 \end{itemize}
+
+The other components of the stack -- ORB-SLAM3 mono-inertial, the
+1D-rangefinder scale recovery, the passive acoustic backup, and the
+perception-aware MPC -- are not the focus of this paper. They are
+the system that the advisor supervises. The acoustic backup itself
+is the subject of a companion paper.
