@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# LaTeX
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.toc
+paper/*.bbl
+paper/*.blg
+paper/*.synctex.gz
+paper/*.fdb_latexmk
+paper/*.fls
+paper/main.pdf
+
+# Data & experiments
+experiments/data/
+experiments/runs/
+*.bag
+*.mcap
+*.pkl
+
+# Editors
+.vscode/
+.idea/
+.DS_Store

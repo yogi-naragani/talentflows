@@ -1,0 +1,40 @@
+# Ablation matrix referenced in the paper's experiments section.
+ablations:
+  - name: full
+    use_slam: true
+    use_range: true
+    use_mpc_perception_cost: true
+    use_gemini_nano: true
+  - name: no_range
+    use_slam: true
+    use_range: false
+    use_mpc_perception_cost: true
+    use_gemini_nano: true
+  - name: no_perception_cost
+    use_slam: true
+    use_range: true
+    use_mpc_perception_cost: false
+    use_gemini_nano: true
+  - name: no_reasoning
+    use_slam: true
+    use_range: true
+    use_mpc_perception_cost: true
+    use_gemini_nano: false
+  - name: classical_only
+    use_slam: true
+    use_range: true
+    use_mpc_perception_cost: false
+    use_gemini_nano: false
+
+scenarios:
+  - warehouse_corridor
+  - forest_clearing
+  - indoor_dropout      # SLAM intentionally degraded mid-flight
+  - low_texture_wall
+
+metrics:
+  - ate_rmse_m
+  - completion_rate
+  - min_clearance_m
+  - reasoning_latency_ms
+  - mpc_solve_ms

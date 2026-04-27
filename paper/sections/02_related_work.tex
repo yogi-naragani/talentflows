@@ -1,0 +1,24 @@
+\section{Related Work}
+\label{sec:related}
+
+\paragraph{Visual-inertial SLAM on micro-drones.}
+ORB-SLAM3, VINS-Mono/Fusion, and OKVIS are the standard references. We
+build atop a keyframe-based monocular VSLAM and treat its outputs as a
+black box.
+
+\paragraph{Perception-aware control.}
+Falanga et al. and Murali et al. introduced perception-aware MPC for
+quadrotors. Our contribution is the addition of a 1D-beam validity term
+that encodes the assumption that the rangefinder must observe a usable
+surface for scale recovery.
+
+\paragraph{Scale recovery for monocular SLAM.}
+Approaches include using IMU pre-integration, learned depth priors, and
+known-size landmarks. Direct use of a single-beam rangefinder remains
+under-explored despite the sensor's ubiquity on consumer drones.
+
+\paragraph{On-device LLMs for robotics.}
+Recent work (SayCan, Code-as-Policies, RT-2) couples large cloud-side
+models with robots. We instead use Gemini Nano, which executes
+on-device, fitting the GPS-denied operational assumption that comms are
+also unreliable.

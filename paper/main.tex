@@ -1,0 +1,45 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+\title{On-Device Reasoning for GPS-Denied Drones:\\
+Coupling Gemini Nano with MPC, Visual SLAM, and a 1D Range Sensor}
+
+\author{\IEEEauthorblockN{Anonymous}
+\IEEEauthorblockA{Affiliation\\
+email@example.com}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We present a navigation stack for GPS-denied micro-drones that fuses
+monocular visual SLAM, a single-beam 1D range sensor, and a nonlinear
+model predictive controller (MPC), and is supervised by an on-device
+small language model (Gemini Nano). The 1D range sensor provides
+metric-scale recovery for monocular SLAM and a hard floor on ground
+clearance; the MPC is perception-aware, softly preferring trajectories
+that preserve feature visibility and beam validity; Gemini Nano runs
+at 1--5\,Hz as an advisory layer that adapts mission-level behavior
+when SLAM degrades. We evaluate the system in simulation across four
+scenarios and four ablations, reporting absolute trajectory error,
+mission completion rate, minimum clearance, and on-device latency.
+\end{abstract}
+
+\input{sections/01_introduction}
+\input{sections/02_related_work}
+\input{sections/03_method}
+\input{sections/04_experiments}
+\input{sections/05_conclusion}
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

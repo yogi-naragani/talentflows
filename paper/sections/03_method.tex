@@ -1,0 +1,38 @@
+\section{Method}
+\label{sec:method}
+
+\subsection{System overview}
+Four modules run concurrently: visual SLAM (front + back end),
+1D-rangefinder filter, state estimator, and an MPC controller.
+A fifth module -- the Gemini Nano reasoner -- runs at low rate and
+publishes advisory mission updates.
+
+\subsection{Metric scale from a 1D beam}
+Let $r_k$ be the measured range and $\hat r_k$ the SLAM-predicted range
+to the local ground plane (intersected with the beam). Over a sliding
+window of $W$ samples we estimate the scale
+\[
+  s = \mathrm{mean}\bigl\{\, r_k / \hat r_k \mid k \in \mathcal{I} \,\bigr\},
+\]
+where $\mathcal{I}$ is the inlier set under a relative-tolerance test
+against the median. The estimated $s$ is multiplied into the SLAM map
+and pose stream once it stabilizes.
+
+\subsection{Perception-aware MPC}
+The cost over the horizon $N$ is
+\[
+  J = \sum_{k=0}^{N-1}
+    \| x_k - x_k^{\text{ref}} \|_Q^2
+  + \| u_k \|_R^2
+  + w_p \, \phi(x_k, \mathcal{M}, \mathbf{b}),
+\]
+where $\phi$ penalizes both predicted feature loss and beam-invalid
+geometry (e.g.\ pitching the body so the beam leaves the ground). $Q$,
+$R$, $w_p$ are listed in Table~\ref{tab:mpc-params}.
+
+\subsection{On-device reasoning loop}
+The reasoner consumes a JSON summary $\mathbf{s}_t$ -- pose, velocity,
+battery, SLAM health, recent ranges, current waypoint -- and emits a
+small action schema $a_t = \{\text{mode}, \Delta\text{wp}, v_{\max},
+\text{notes}\}$. The supervisor enforces hard caps independent of the
+LLM output (clearance $\geq 0.5$\,m, $v \leq 5$\,m/s).

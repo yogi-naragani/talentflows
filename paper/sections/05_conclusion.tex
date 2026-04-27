@@ -1,0 +1,11 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+We described and scaffolded a navigation stack for GPS-denied drones
+that combines monocular visual SLAM, a 1D range sensor, a
+perception-aware MPC, and an on-device Gemini Nano reasoner. The key
+design choice is to keep the hard real-time path classical and
+verifiable while letting the small on-device LLM operate as a low-rate
+advisor under hard safety bounds. Future work: hardware deployment on a
+Tensor-class flight computer and a comparative study against
+cloud-tethered LLM reasoners under intermittent comms.

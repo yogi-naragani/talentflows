@@ -1,0 +1,21 @@
+\section{Experiments}
+\label{sec:experiments}
+
+\subsection{Setup}
+We evaluate in simulation across four scenarios: warehouse corridor,
+forest clearing, indoor SLAM dropout (textures masked mid-flight), and
+low-texture wall. Each scenario is run for 60\,s with synchronized
+30\,Hz monocular images, 50\,Hz 1D range, and 200\,Hz IMU.
+
+\subsection{Ablations}
+We compare five configurations: full system; no range; no
+perception-cost; no reasoner; classical-only. Configuration files are
+in \texttt{experiments/configs/ablations.yaml}.
+
+\subsection{Metrics}
+Absolute trajectory error (ATE-RMSE), mission completion rate, minimum
+clearance, MPC solve time, and Gemini Nano latency.
+
+\subsection{Results}
+\textit{Pending.} Tables and plots will be inserted from
+\texttt{experiments/runs/}.

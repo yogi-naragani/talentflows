@@ -1,0 +1,26 @@
+\section{Introduction}
+\label{sec:intro}
+
+GPS-denied flight is the common case for indoor inspection, subterranean
+mapping, and contested outdoor operation. The classical recipe pairs
+visual-inertial SLAM with a nonlinear controller, but two long-standing
+weaknesses remain: monocular SLAM is scale-ambiguous, and purely
+geometric stacks have no graceful response when tracking degrades.
+
+We address both with minimal added hardware and on-device compute.
+First, a single-beam 1D range sensor (a low-cost ToF or radar
+altimeter) supplies a metric-scale anchor and a clearance floor.
+Second, an on-device small language model -- Gemini Nano -- supervises
+the stack at low rate, proposing mission-level adjustments (slow,
+hover, return, or re-explore) from a compact JSON state summary.
+
+\paragraph{Contributions.}
+\begin{itemize}
+\item A compact perception-aware MPC formulation that incorporates a
+  beam-validity term alongside feature visibility.
+\item A windowed scale-recovery scheme that uses the 1D range sensor
+  against the locally planar ground assumption.
+\item An on-device reasoning interface for Gemini Nano that is strictly
+  advisory and bounded by safety constraints.
+\item Simulation ablations isolating the contribution of each component.
+\end{itemize}

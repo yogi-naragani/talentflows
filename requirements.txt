@@ -1,0 +1,7 @@
+numpy>=1.26
+scipy>=1.11
+opencv-python>=4.9
+pyyaml>=6.0
+casadi>=3.6           # MPC formulation / NLP
+matplotlib>=3.8       # plots for the paper
+transforms3d>=0.4     # SE(3) utilities
