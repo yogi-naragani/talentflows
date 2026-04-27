@@ -18,17 +18,37 @@ where $\mathcal{I}$ is the inlier set under a relative-tolerance test
 against the median. The estimated $s$ is multiplied into the SLAM map
 and pose stream once it stabilizes.
 
-\subsection{Perception-aware MPC}
-The cost over the horizon $N$ is
-\[
-  J = \sum_{k=0}^{N-1}
-    \| x_k - x_k^{\text{ref}} \|_Q^2
-  + \| u_k \|_R^2
-  + w_p \, \phi(x_k, \mathcal{M}, \mathbf{b}),
-\]
-where $\phi$ penalizes both predicted feature loss and beam-invalid
-geometry (e.g.\ pitching the body so the beam leaves the ground). $Q$,
-$R$, $w_p$ are listed in Table~\ref{tab:mpc-params}.
+\subsection{Perception-aware MPC with acoustic clearance constraint}
+\label{sec:mpc}
+Let $x_k = [p_k^\top, v_k^\top, q_k^\top, \omega_k^\top]^\top$ be the
+discrete-time state at horizon step $k \in \{0, \dots, N-1\}$ and
+$u_k = [T_k, \omega_k^{\text{cmd}\,\top}]^\top$ the collective thrust
+and body-rate setpoint. We solve, at each control tick,
+\begin{align}
+\min_{\substack{x_{0:N},\\u_{0:N-1}}} \;& \sum_{k=0}^{N-1}
+    \| x_k - x_k^{\text{ref}} \|_{Q(t)}^2
+  + \| u_k \|_{R}^2
+  + w_p(t)\,\phi(x_k, \mathcal{M}, \mathbf{b}) \nonumber\\
+\text{s.t.}\;& x_{k+1} = f(x_k, u_k), \quad x_0 = \hat x \label{eq:dyn}\\
+            & u_k \in \mathcal{U} \label{eq:input}\\
+            & \|v_k\| \leq v_{\max}(t)               \label{eq:vmax}\\
+            & d_b(x_k) \geq c^{\min}_b - \epsilon_b
+              \quad \forall b\!\in\!\mathcal{B}_{\text{active}}(t)
+              \label{eq:acoustic}
+\end{align}
+where $\phi$ penalizes predicted feature loss (visibility of map
+points $\mathcal{M}$) and beam-invalid geometry (the 1D beam
+$\mathbf{b}$ leaving its planar surface), $d_b(\cdot)$ is the
+predicted body-axis clearance toward direction $b$, and
+$\mathcal{B}_{\text{active}}(t)$ is the set of directions for which
+the acoustic backup's confidence currently exceeds the gate
+$\eta$. The advisor (Sec.\,\ref{sec:reasoning}) modulates $Q(t)$,
+$w_p(t)$, and $v_{\max}(t)$, and the acoustic node populates $c^{\min}_b$
+and $\mathcal{B}_{\text{active}}(t)$. Slacks $\epsilon_b \geq 0$ are
+penalized in the objective so the QP stays feasible at high
+disturbance, but the supervisor refuses any solution with
+$\epsilon_b > 0$ if a hard constraint is required by mission state.
+Default weights are listed in Table~\ref{tab:mpc-params}.
 
 \subsection{Acoustic backup proximity}
 A passive microphone array on the airframe captures the drone's
@@ -48,6 +68,7 @@ keeps the drone safe through brief perception outages without
 requiring any extra ranging emitter.
 
 \subsection{On-device reasoning loop}
+\label{sec:reasoning}
 The reasoner replaces what would otherwise be a hand-written rule tree
 over sensor states. We split it into three layers (Fig.\,\ref{fig:reasoning},
 described in detail in \texttt{docs/llm\_decision\_design.md}):
@@ -79,3 +100,52 @@ and the MPC's own constraints are the safety authority. This split
 keeps the hard real-time path classical and verifiable while letting
 the SLM collapse a high-dimensional state matrix into a contextual
 decision without us writing the conjunction by hand.
+
+% Wrapped in figure rather than algorithm so it compiles with only
+% the algorithmic package (no algorithm float wrapper required).
+% Add \usepackage{algorithm} and switch back to algorithm[t] when
+% finalizing the camera-ready.
+\begin{figure}[t]
+\centering
+\begin{minipage}{0.95\linewidth}
+\begin{algorithmic}[1]
+\REQUIRE Latest sensor messages, mission waypoint $w$, current
+         estimate $\hat x$, battery $b$.
+\STATE $\mathbf{o}_t \gets \textsc{Monitor.observe}(\hat x, \text{sensors}, w)$
+       \hfill \COMMENT{trends, ratios, time-since}
+\STATE $a_t \gets \textsc{Advisor.decide}(\mathbf{o}_t)$
+       \hfill \COMMENT{SLM or rule-tree, same schema}
+\STATE $a_t^\star, R \gets \textsc{Safety.apply}(a_t, \hat x, b)$
+       \hfill \COMMENT{$R$: clamp report}
+\IF{$R.\text{clamped}$}
+  \STATE log $R.\text{reasons}$ for offline audit
+\ENDIF
+\STATE publish $w \gets w + a_t^\star.\Delta\text{wp}$;
+       $v_{\max} \gets a_t^\star.v_{\max}$;
+       $Q(t) \gets Q_0 \odot a_t^\star.\text{mpc\_weights}$;
+       $T(t) \gets a_t^\star.\text{sensor\_trust}$;
+       $\text{mode} \gets a_t^\star.\text{mode}$.
+\STATE \textbf{guarantee} $\|v_k\| \leq v_{\max}^{\text{hard}}$,
+       $z_k \geq z^{\min}$, geofence(\,$p_k$\,) regardless of $a_t$.
+\end{algorithmic}
+\end{minipage}
+\caption{Per-tick advisory pipeline.}
+\label{alg:advisor}
+\end{figure}
+
+\subsection{Implementations}
+\label{sec:impl}
+We provide two complementary implementations of the stack. The
+\textbf{ROS\,2 + Gazebo Harmonic} build runs the full nonlinear MPC
+in CasADi and bridges sensor topics through \texttt{ros\_gz\_bridge}
+(\texttt{launch/sim.launch.py}). For paper-grade ablations we also
+provide a \textbf{Python-only simulator} under
+\texttt{experiments/sim/} that drives the same library code -- the
+Monitor, both advisors, and the SafetySupervisor -- against
+synthetic dynamics, sensors, and degradation schedules. The
+Python sim closes the loop with an analytical LQR controller
+(\texttt{gps\_denied\_drone/control/lqr.py}) that honors the
+advisor's $v_{\max}$, weight, and mode outputs in the same way the
+Gazebo MPC does. This makes paper experiments reproducible on a
+laptop in seconds and removes Gazebo as a confounder when
+isolating the advisor's contribution.

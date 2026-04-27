@@ -30,6 +30,7 @@ from std_msgs.msg import Bool, Float32, Float32MultiArray, String
 from gps_denied_drone.reasoning.gemini_nano import (
     GeminiNanoClient, VALID_WEIGHTS, VALID_SENSORS,
 )
+from gps_denied_drone.reasoning.rule_tree import RuleTreeAdvisor
 from gps_denied_drone.reasoning.monitor import HealthMonitor, signals_to_json_dict
 from gps_denied_drone.reasoning.safety import SafetySupervisor
 from gps_denied_drone.sensors.acoustic_sensor import DIRECTIONS
@@ -42,8 +43,18 @@ class ReasoningNode(Node):
         self.declare_parameter("waypoint_in",  "/mission/waypoint_raw")
         self.declare_parameter("waypoint_out", "/mission/waypoint")
         self.declare_parameter("slm_backend", "stub")
+        # Central ablation knob: "slm" or "rule_tree". The reasoning
+        # node intentionally accepts both so paper experiments can swap
+        # the advisor while keeping the rest of the stack identical.
+        self.declare_parameter("advisor", "slm")
 
-        self.client = GeminiNanoClient(backend=None)  # plug in via factory
+        advisor = str(self.get_parameter("advisor").value).lower()
+        if advisor == "rule_tree":
+            self.client = RuleTreeAdvisor()
+            self.get_logger().info("advisor: rule_tree (baseline)")
+        else:
+            self.client = GeminiNanoClient(backend=None)
+            self.get_logger().info("advisor: slm (Gemini Nano-class)")
         self.monitor = HealthMonitor(window_s=5.0)
         self.safety = SafetySupervisor()
 
