@@ -1,0 +1,39 @@
+# Deployment parameters tuned for Raspberry Pi 5 + AI HAT+ (Hailo-8/8L).
+# These are the ROS 2 parameters loaded by deploy_pi5.launch.py.
+
+perception_node:
+  ros__parameters:
+    use_hailo: false                # set true if a Hailo-mapped front-end
+                                    # (SuperPoint / ORB) is available
+    image_topic: "/camera/image_raw"
+    pose_topic: "/slam/pose"
+    health_topic: "/slam/tracking_ok"
+
+acoustic_node:
+  ros__parameters:
+    use_hailo: false
+    sample_rate_hz: 48000
+    publish_rate_hz: 20.0
+
+mpc_node:
+  ros__parameters:
+    rate_hz: 100.0                  # achievable on one A76 core w/ HPIPM
+    horizon_N: 20
+    dt: 0.05
+    Q_pos: 10.0
+    Q_vel: 1.0
+    Q_att: 1.0
+    R_thrust: 0.01
+    R_rates: 0.01
+    w_perception: 0.5
+    min_clearance_m: 0.6
+    acoustic_gate: 0.5
+
+reasoning_node:
+  ros__parameters:
+    rate_hz: 1.0                    # 0.5-2 Hz; bursts to ~1 CPU core
+    slm_backend: "llama_cpp_gemma3_1b"
+    slm_max_tokens: 96
+    # Substitution note: Gemini Nano runs only on Pixel/Tensor.
+    # On Pi 5 + AI HAT the role is filled by a Gemini Nano-class SLM
+    # via llama.cpp. See docs/hardware_target.md.

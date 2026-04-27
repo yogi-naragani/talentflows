@@ -24,6 +24,16 @@ simulation harness.
 - Gazebo Harmonic (`gz-sim 8`) via `ros_gz_bridge` / `ros_gz_sim`
 - Python 3.10+
 
+## Hardware target
+
+Onboard compute: **Raspberry Pi 5 (8 GB / 16 GB) + Raspberry Pi AI HAT+
+(Hailo-8 or Hailo-8L)**. Power budget ~15–18 W for the full compute
+stack; ~10% of the motor power on a 500 g class drone. See
+`docs/hardware_target.md` for the per-component breakdown,
+CPU/NPU split, and an honest note on the Gemini Nano substitution
+(Gemini Nano runs only on Pixel/Tensor; on Pi 5 we use a Gemini
+Nano-class SLM such as Gemma 3 1B via llama.cpp).
+
 ## Layout
 
 ```
@@ -61,9 +71,20 @@ ros2 launch gps_denied_drone sim.launch.py
 ```
 
 This starts gz-sim with `worlds/warehouse.sdf`, the `ros_gz_bridge` for
-camera / IMU / 1D-range / motor topics, and the five nodes
+camera / IMU / 1D-range / audio / motor topics, and the six nodes
 (`perception_node`, `range_node`, `fusion_node`, `mpc_node`,
-`reasoning_node`).
+`reasoning_node`, `acoustic_node`).
+
+## Deploy to Pi 5 + AI HAT (hardware-in-the-loop or flight)
+
+```
+ros2 launch gps_denied_drone deploy_pi5.launch.py \
+     use_hailo:=true slm_backend:=llama_cpp_gemma3_1b
+```
+
+This brings up the six nodes only (no gz-sim — Gazebo is too heavy for
+the Pi 5). Either let the topics come from real drivers, or run gz-sim
+on a workstation on the same network for HIL.
 
 ## Status
 

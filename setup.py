@@ -14,6 +14,7 @@ setup(
         (os.path.join("share", package_name), ["package.xml"]),
         (os.path.join("share", package_name, "launch"), glob("launch/*.py")),
         (os.path.join("share", package_name, "config"), glob("config/*.yaml")),
+        (os.path.join("share", package_name, "docs"), glob("docs/*.md")),
         (os.path.join("share", package_name, "worlds"), glob("worlds/*.sdf")),
     ],
     install_requires=["setuptools", "numpy", "scipy", "opencv-python", "casadi"],
