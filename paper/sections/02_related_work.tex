@@ -2,23 +2,59 @@
 \label{sec:related}
 
 \paragraph{Visual-inertial SLAM on micro-drones.}
-ORB-SLAM3, VINS-Mono/Fusion, and OKVIS are the standard references. We
-build atop a keyframe-based monocular VSLAM and treat its outputs as a
-black box.
+ORB-SLAM3~\cite{campos2021orbslam3} and VINS-Mono / VINS-Fusion~\cite{qin2018vinsmono}
+are the dominant open implementations. Recent comparative work
+\cite{merzlyakov2021vslam,schmidt2025vislamloop} highlights ORB-SLAM3's
+multi-map (Atlas) and loop-closure machinery as the key advantage for
+missions with intermittent tracking, which fits our degradation
+scenarios. We adopt ORB-SLAM3 in mono-inertial mode and report
+VINS-Fusion as an ablation column.
 
 \paragraph{Perception-aware control.}
-Falanga et al. and Murali et al. introduced perception-aware MPC for
-quadrotors. Our contribution is the addition of a 1D-beam validity term
-that encodes the assumption that the rangefinder must observe a usable
-surface for scale recovery.
+PAMPC~\cite{falanga2018pampc} introduced perception-aware MPC for
+quadrotors. Recent work extends this with sampling-based path-integral
+formulations~\cite{pampi2025} and feature-limited
+planning~\cite{paplanning2025}. These efforts assume the SLAM
+front-end keeps working; \emph{none co-design with a high-level
+supervisor that recognizes degradation and changes mission intent}.
+We address this gap by reweighting the perception cost at runtime in
+response to advisories from an on-device LLM.
 
 \paragraph{Scale recovery for monocular SLAM.}
-Approaches include using IMU pre-integration, learned depth priors, and
-known-size landmarks. Direct use of a single-beam rangefinder remains
-under-explored despite the sensor's ubiquity on consumer drones.
+Approaches include IMU pre-integration, learned depth priors, and
+known-size landmarks. Direct use of a single-beam range sensor has
+been shown for scale correction~\cite{zhang2018rangefinderscale} and
+visual-LiDAR fusion~\cite{vlidaroscale2023}, but typically only as a
+correction signal during nominal operation. Our 1D rangefinder also
+acts as a clearance fallback when vision fails.
+
+\paragraph{Onboard acoustic sensing on drones.}
+Most onboard drone-audition research treats propeller ego-noise as a
+\emph{nuisance} to suppress~\cite{rotorconditioned2025}. BatDeck
+demonstrated active ultrasonic obstacle avoidance on a
+nano-drone~\cite{batdeck2024}, and Fontaine et al.~\cite{fontaine2021}
+showed that ego-noise reflections can localize acoustic reflectors
+\emph{from a stationary robot}. To our knowledge, no published flying
+micro-drone uses passive ego-noise reflectometry as an onboard
+SLAM-degradation backup; the closest active analogue is BatDeck. Our
+contribution differs by being passive (no emitter, no extra payload,
+shared mic with audition tasks) and by activating only on SLAM-health
+alarms.
 
 \paragraph{On-device LLMs for robotics.}
-Recent work (SayCan, Code-as-Policies, RT-2) couples large cloud-side
-models with robots. We instead use Gemini Nano, which executes
-on-device, fitting the GPS-denied operational assumption that comms are
-also unreliable.
+SayCan, Code-as-Policies, and RT-2 couple large cloud-side models with
+robots. On-device deployments have so far been used as
+natural-language command translators~\cite{px4ollama2025} or task-level
+planners~\cite{llmland2025}. Google DeepMind's recent ``Gemini
+Robotics On-Device''~\cite{geminirobotics2025} announcement shows the
+direction. Our use is distinct: Gemini Nano runs at 1--5\,Hz as a
+real-time \emph{advisory} layer reasoning over SLAM / IMU / acoustic
+health to adapt the MPC, not to issue low-level commands. We are
+careful to distinguish the on-device Gemini Nano SLM from the larger
+``Gemini Robotics'' model.
+
+\paragraph{GPS-denied UAV surveys.}
+The 2025 Jarraya et al.\ review~\cite{jarraya2025gpsdenied} explicitly
+calls hybrid multi-sensor fusion the open frontier. Our reproducible
+ROS\,2 + Gazebo testbed with degradation injection contributes a
+benchmark in that direction.

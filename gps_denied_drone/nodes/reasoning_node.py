@@ -7,11 +7,12 @@ from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Range
 from geometry_msgs.msg import PoseStamped
-from std_msgs.msg import Bool, Float32
+from std_msgs.msg import Bool, Float32, Float32MultiArray
 
 from gps_denied_drone.reasoning.gemini_nano import (
     GeminiNanoClient, StateSummary,
 )
+from gps_denied_drone.sensors.acoustic_sensor import DIRECTIONS
 
 
 class ReasoningNode(Node):
@@ -27,6 +28,9 @@ class ReasoningNode(Node):
         self._range = None
         self._slam_ok = True
         self._wp_in = None
+        self._ac_prox: dict[str, float] | None = None
+        self._ac_clear: float | None = None
+        self._ac_conf: float = 0.0
 
         self.create_subscription(Odometry, "/odom/fused", self._set_odom, 10)
         self.create_subscription(Range, "/range/filtered", self._set_range, 10)
@@ -34,6 +38,12 @@ class ReasoningNode(Node):
         self.create_subscription(PoseStamped,
                                  self.get_parameter("waypoint_in").value,
                                  self._set_wp, 10)
+        self.create_subscription(Float32MultiArray, "/acoustic/proximity",
+                                 self._set_ac_prox, 10)
+        self.create_subscription(Range, "/acoustic/clearance",
+                                 self._set_ac_clear, 10)
+        self.create_subscription(Float32, "/acoustic/confidence",
+                                 self._set_ac_conf, 10)
         self.wp_pub = self.create_publisher(
             PoseStamped, self.get_parameter("waypoint_out").value, 10)
         self.cap_pub = self.create_publisher(
@@ -46,6 +56,16 @@ class ReasoningNode(Node):
     def _set_range(self, msg): self._range = msg
     def _set_slam(self, msg): self._slam_ok = bool(msg.data)
     def _set_wp(self, msg): self._wp_in = msg
+
+    def _set_ac_prox(self, msg):
+        if len(msg.data) >= len(DIRECTIONS):
+            self._ac_prox = {d: float(v) for d, v in zip(DIRECTIONS, msg.data)}
+
+    def _set_ac_clear(self, msg):
+        self._ac_clear = float(msg.range) if msg.range != float("inf") else None
+
+    def _set_ac_conf(self, msg):
+        self._ac_conf = float(msg.data)
 
     def tick(self) -> None:
         if self._odom is None or self._wp_in is None:
@@ -62,6 +82,9 @@ class ReasoningNode(Node):
             slam_inliers=0,
             range_m=float(self._range.range) if self._range else None,
             waypoint_xyz_m=(wp.x, wp.y, wp.z),
+            acoustic_proximity=self._ac_prox,
+            acoustic_clearance_m=self._ac_clear,
+            acoustic_confidence=self._ac_conf,
         )
         action = self.client.decide(summary)
 

@@ -30,6 +30,23 @@ where $\phi$ penalizes both predicted feature loss and beam-invalid
 geometry (e.g.\ pitching the body so the beam leaves the ground). $Q$,
 $R$, $w_p$ are listed in Table~\ref{tab:mpc-params}.
 
+\subsection{Acoustic backup proximity}
+A passive microphone array on the airframe captures the drone's
+ego-noise (propeller wash) reflected from nearby surfaces. After
+band-pass filtering to the propeller harmonic band and ego-reference
+whitening, cross-correlation across mic pairs yields per-direction
+proximity scores $\rho_d \in [0,1]$ for $d \in \{\text{front, back,
+left, right, up, down}\}$, and where consistent across pairs, a
+time-of-flight clearance estimate $c_d$.
+
+This signal is a *backup*: while SLAM tracking is healthy it is
+ignored. When SLAM degrades or its estimated covariance grows beyond a
+threshold, the MPC consumes $c_d$ as a hard lower bound on body-axis
+clearance, and the reasoner sees $\rho_d$ in the state summary so it
+can prefer retreat directions away from the most-occluded axis. This
+keeps the drone safe through brief perception outages without
+requiring any extra ranging emitter.
+
 \subsection{On-device reasoning loop}
 The reasoner consumes a JSON summary $\mathbf{s}_t$ -- pose, velocity,
 battery, SLAM health, recent ranges, current waypoint -- and emits a

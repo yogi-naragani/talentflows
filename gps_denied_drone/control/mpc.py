@@ -29,6 +29,10 @@ class MPCConfig:
     w_perception: float = 0.5     # see PerceptionAwareCost
     thrust_min: float = 2.0
     thrust_max: float = 18.0
+    # Hard inequality min clearance enforced when acoustic_confidence
+    # exceeds acoustic_gate.
+    min_clearance_m: float = 0.6
+    acoustic_gate: float = 0.5
 
 
 @dataclass
@@ -41,22 +45,44 @@ class MPCSolution:
 
 
 class PerceptionAwareCost:
-    """Trajectory penalty that grows when expected feature visibility or
-    beam-on-ground geometry degrades. Exposed as a callable so the paper
-    can ablate it cleanly."""
+    """Trajectory penalty that grows when expected feature visibility,
+    beam-on-ground geometry, or acoustic-derived obstacle proximity
+    degrades. Exposed as a callable so the paper can ablate each term
+    cleanly."""
 
-    def __call__(self, x_pred: np.ndarray, map_points_w: np.ndarray) -> float:
+    def __call__(
+        self,
+        x_pred: np.ndarray,
+        map_points_w: np.ndarray,
+        acoustic_proximity: dict | None = None,
+    ) -> float:
         raise NotImplementedError
+
+
+@dataclass
+class AcousticConstraint:
+    """Per-axis minimum clearance derived from the acoustic backup. If
+    ``confidence < cfg.acoustic_gate`` the controller ignores it; above
+    the gate the MPC adds a hard lower bound on body-axis distance to
+    obstacle, evaluated over the prediction horizon."""
+    clearance_m: dict | None = None
+    confidence: float = 0.0
 
 
 class QuadrotorMPC:
     def __init__(self, cfg: MPCConfig, perception_cost: PerceptionAwareCost | None = None):
         self.cfg = cfg
         self.perception_cost = perception_cost
+        self._acoustic = AcousticConstraint()
         self._build_nlp()
 
+    def set_acoustic(self, constraint: AcousticConstraint) -> None:
+        self._acoustic = constraint
+
     def _build_nlp(self) -> None:
-        # CasADi NLP construction goes here (Opti stack).
+        # CasADi NLP construction goes here (Opti stack). Acoustic
+        # constraints are added as hard inequalities when active and
+        # softened to penalty terms otherwise.
         pass
 
     def solve(self, x0: np.ndarray, x_ref: np.ndarray) -> MPCSolution:

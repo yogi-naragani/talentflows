@@ -30,6 +30,7 @@ setup(
             "fusion_node     = gps_denied_drone.nodes.fusion_node:main",
             "mpc_node        = gps_denied_drone.nodes.mpc_node:main",
             "reasoning_node  = gps_denied_drone.nodes.reasoning_node:main",
+            "acoustic_node   = gps_denied_drone.nodes.acoustic_node:main",
         ],
     },
 )

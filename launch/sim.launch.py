@@ -32,6 +32,8 @@ def generate_launch_description():
             "/imu@sensor_msgs/msg/Imu[gz.msgs.IMU",
             "/range/raw@sensor_msgs/msg/Range[gz.msgs.LaserScan",
             "/cmd/motor@std_msgs/msg/Float32MultiArray]gz.msgs.Actuators",
+            "/audio/raw@std_msgs/msg/Float32MultiArray[gz.msgs.Float_V",
+            "/motor/rpm@std_msgs/msg/Float32MultiArray[gz.msgs.Float_V",
         ],
         output="screen",
     )
@@ -42,6 +44,7 @@ def generate_launch_description():
         Node(package="gps_denied_drone", executable="fusion_node",     output="screen"),
         Node(package="gps_denied_drone", executable="mpc_node",        output="screen"),
         Node(package="gps_denied_drone", executable="reasoning_node",  output="screen"),
+        Node(package="gps_denied_drone", executable="acoustic_node",   output="screen"),
     ]
 
     return LaunchDescription([world_arg, gz_sim, bridge, *nodes])

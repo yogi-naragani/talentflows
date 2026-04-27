@@ -33,6 +33,11 @@ class StateSummary:
     slam_inliers: int
     range_m: float | None
     waypoint_xyz_m: tuple[float, float, float]
+    # Acoustic backup. proximity is per-direction in [0, 1]; clearance_m
+    # is the worst-direction estimate; confidence gates use of either.
+    acoustic_proximity: dict | None = None
+    acoustic_clearance_m: float | None = None
+    acoustic_confidence: float = 0.0
     notes: str = ""
 
 
@@ -45,10 +50,17 @@ class ReasoningAction:
 
 
 SYSTEM_PROMPT = """You are an on-board flight reasoning module for a
-GPS-denied micro-drone. You receive a compact JSON state. You must reply
-with a single JSON object matching the ReasoningAction schema. Be
-conservative: prefer hover or slow exploration when SLAM tracking is
-weak. Never propose altitude below 0.5 m or speed above 5 m/s.
+GPS-denied micro-drone. You receive a compact JSON state including an
+acoustic backup proximity field. You must reply with a single JSON
+object matching the ReasoningAction schema.
+
+Rules:
+- If slam_tracking_ok is false OR acoustic_confidence > 0.5 with any
+  proximity > 0.7, prefer hover or slow retreat away from the most
+  occluded direction.
+- Never propose altitude below 0.5 m or speed above 5 m/s.
+- Treat acoustic_clearance_m as advisory; the MPC enforces the hard
+  clearance constraint.
 """
 
 
