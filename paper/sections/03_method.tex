@@ -48,8 +48,34 @@ keeps the drone safe through brief perception outages without
 requiring any extra ranging emitter.
 
 \subsection{On-device reasoning loop}
-The reasoner consumes a JSON summary $\mathbf{s}_t$ -- pose, velocity,
-battery, SLAM health, recent ranges, current waypoint -- and emits a
-small action schema $a_t = \{\text{mode}, \Delta\text{wp}, v_{\max},
-\text{notes}\}$. The supervisor enforces hard caps independent of the
-LLM output (clearance $\geq 0.5$\,m, $v \leq 5$\,m/s).
+The reasoner replaces what would otherwise be a hand-written rule tree
+over sensor states. We split it into three layers (Fig.\,\ref{fig:reasoning},
+described in detail in \texttt{docs/llm\_decision\_design.md}):
+
+\begin{enumerate}
+\item A \textbf{Monitor} aggregates raw signals into a structured
+  observation $\mathbf{o}_t$: pose, velocity, SLAM tracking flag and
+  inlier \emph{trend}, range valid-ratio, per-direction acoustic
+  proximity, battery, IMU vibration, motor saturation, and mission
+  state. The Monitor performs no policy logic.
+\item An \textbf{SLM advisor} (Gemini Nano on Pixel; a Gemini
+  Nano-class SLM such as Gemma\,3\,1B via \texttt{llama.cpp} on
+  Pi\,5+AI HAT) consumes $\mathbf{o}_t$ and emits a structured
+  action $a_t = \{\text{mode}, \Delta\text{wp}, v_{\max},
+  \text{yaw}, \text{mpc\_weights}, \text{sensor\_trust},
+  \text{replan}, \text{rationale}, \text{confidence}\}$. The action
+  schema lets the SLM retune MPC weights and per-modality fusion
+  trusts, not just request a mode change.
+\item A \textbf{SafetySupervisor} clamps every field of $a_t$ to a
+  verified envelope (mode whitelist, speed cap, waypoint-delta norm,
+  altitude floor, geofence, weight and trust ranges). Battery
+  thresholds override the SLM (forced \emph{return} or \emph{land}).
+  The supervisor emits a clamp report so we can audit overrides
+  offline.
+\end{enumerate}
+
+The SLM is advisory and runs at $0.5$--$2$\,Hz; the SafetySupervisor
+and the MPC's own constraints are the safety authority. This split
+keeps the hard real-time path classical and verifiable while letting
+the SLM collapse a high-dimensional state matrix into a contextual
+decision without us writing the conjunction by hand.
