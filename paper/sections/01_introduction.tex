@@ -1,26 +1,51 @@
 \section{Introduction}
 \label{sec:intro}
 
-GPS-denied flight is the common case for indoor inspection, subterranean
-mapping, and contested outdoor operation. The classical recipe pairs
-visual-inertial SLAM with a nonlinear controller, but two long-standing
-weaknesses remain: monocular SLAM is scale-ambiguous, and purely
-geometric stacks have no graceful response when tracking degrades.
+GPS-denied flight is the common case for indoor inspection,
+subterranean mapping, and contested outdoor operation. The classical
+recipe pairs visual-inertial SLAM with a nonlinear controller, but
+when SLAM degrades -- a textureless wall, sudden illumination change,
+fast yaw -- the drone loses both its pose estimate and the
+feature-based obstacle field that the controller relies on, often
+within a single 30\,Hz frame interval.
 
-We address both with minimal added hardware and on-device compute.
-First, a single-beam 1D range sensor (a low-cost ToF or radar
-altimeter) supplies a metric-scale anchor and a clearance floor.
-Second, an on-device small language model -- Gemini Nano -- supervises
-the stack at low rate, proposing mission-level adjustments (slow,
-hover, return, or re-explore) from a compact JSON state summary.
+Active ranging is one answer. BatDeck~\cite{batdeck2024} demonstrated
+that a 30\,mW ultrasonic transducer is enough for nano-drone obstacle
+avoidance. Active emission costs power, adds payload, and -- in
+contested settings -- broadcasts the drone's location.
+
+This paper asks: \emph{can the drone's own propeller noise be
+exploited as a free, passive proximity signal?} Drone audition has
+historically treated propeller ego-noise as a
+nuisance~\cite{rotorconditioned2025} to be suppressed. We invert
+that view. A small onboard microphone array listens specifically for
+short-delay reflections of the rotor noise field, applies an
+ego-reference whitening to the direct path, and cross-correlates the
+residual to estimate per-direction proximity. The same hardware can
+still serve other audition tasks; we add no emitter and no
+single-purpose transducer.
 
 \paragraph{Contributions.}
 \begin{itemize}
-\item A compact perception-aware MPC formulation that incorporates a
-  beam-validity term alongside feature visibility.
-\item A windowed scale-recovery scheme that uses the 1D range sensor
-  against the locally planar ground assumption.
-\item An on-device reasoning interface for Gemini Nano that is strictly
-  advisory and bounded by safety constraints.
-\item Simulation ablations isolating the contribution of each component.
+\item A passive acoustic proximity pipeline using onboard microphones
+  and propeller ego-noise as the illumination source, with
+  per-direction proximity scores and a worst-direction clearance
+  estimate.
+\item Integration into a perception-aware MPC as a hard clearance
+  constraint that activates only when visual SLAM degrades, keeping
+  the nominal flight envelope unchanged.
+\item Empirical evaluation on scripted SLAM-dropout scenarios in
+  Gazebo Harmonic, with measured collision-avoidance against an
+  ablation that disables the backup.
+\item A frank comparison against the active-ultrasound BatDeck
+  baseline along power, payload, acoustic signature, and multi-role
+  use.
+\item Open-source ROS\,2 release with a Raspberry Pi\,5 + Hailo
+  AI HAT+ deployment target and measured power budget.
 \end{itemize}
+
+The other components of the stack -- ORB-SLAM3 mono-inertial, the
+1D-rangefinder scale recovery, the perception-aware MPC, and the
+on-device small language model that acts as a slow mission
+supervisor -- are not the focus of this paper. They form the host
+system in which the acoustic backup is evaluated.

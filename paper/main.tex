@@ -9,8 +9,8 @@
 \usepackage{xcolor}
 \usepackage{hyperref}
 
-\title{On-Device Reasoning for GPS-Denied Drones:\\
-Coupling Gemini Nano with MPC, Visual SLAM, and a 1D Range Sensor}
+\title{Passive Ego-Noise Reflectometry as a SLAM-Degradation Backup
+       for GPS-Denied Micro-Drones}
 
 \author{\IEEEauthorblockN{Anonymous}
 \IEEEauthorblockA{Affiliation\\
@@ -20,17 +20,24 @@ email@example.com}}
 \maketitle
 
 \begin{abstract}
-We present a navigation stack for GPS-denied micro-drones that fuses
-monocular visual SLAM, a single-beam 1D range sensor, and a nonlinear
-model predictive controller (MPC), and is supervised by an on-device
-small language model (Gemini Nano). The 1D range sensor provides
-metric-scale recovery for monocular SLAM and a hard floor on ground
-clearance; the MPC is perception-aware, softly preferring trajectories
-that preserve feature visibility and beam validity; Gemini Nano runs
-at 1--5\,Hz as an advisory layer that adapts mission-level behavior
-when SLAM degrades. We evaluate the system in simulation across four
-scenarios and four ablations, reporting absolute trajectory error,
-mission completion rate, minimum clearance, and on-device latency.
+When monocular visual SLAM degrades on a GPS-denied micro-drone, the
+vehicle loses both its pose estimate and its only proximity awareness
+within milliseconds. We show that the same propeller noise that
+complicates onboard drone audition can be turned into a passive
+obstacle backup: a small microphone array listens for short-delay
+reflections of the drone's own ego-noise and emits per-direction
+proximity scores plus a worst-direction clearance estimate. The
+signal is fused into a perception-aware MPC as a hard clearance
+constraint that activates when SLAM tracking is lost or its
+covariance grows beyond a threshold. We integrate the backup into a
+ROS\,2 + Gazebo stack with ORB-SLAM3 mono-inertial, a 1D rangefinder
+for monocular scale recovery, and an on-device small language model
+acting as a low-rate mission supervisor. The contribution of this
+paper is the empirical demonstration that the passive backup keeps
+the drone safe through scripted SLAM-dropout scenarios where vision
+alone would collide. We discuss the SNR floor, compare against the
+active-ultrasound BatDeck baseline, and report power consumption on
+the Raspberry Pi\,5 + Hailo AI HAT+ target.
 \end{abstract}
 
 \input{sections/01_introduction}

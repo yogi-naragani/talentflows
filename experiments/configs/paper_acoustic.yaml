@@ -1,0 +1,44 @@
+# Experiment matrix for the "Passive Ego-Noise Reflectometry as a
+# SLAM-Degradation Backup" paper. The central comparison is
+# (acoustic_backup_on) vs (acoustic_backup_off) under scripted SLAM
+# dropouts.
+
+central_comparison:
+  - name: full
+    use_acoustic: true
+    slam_dropout_injected: true
+  - name: no_acoustic
+    use_acoustic: false
+    slam_dropout_injected: true
+  - name: nominal
+    use_acoustic: true
+    slam_dropout_injected: false      # control: did we hurt nominal flight?
+  - name: nominal_no_acoustic
+    use_acoustic: false
+    slam_dropout_injected: false
+
+scenarios:
+  - corridor_white_wall          # textureless wall mid-corridor
+  - texture_mask_burst           # 2 s synthetic texture mask
+  - illumination_drop            # sudden lighting change
+  - fast_yaw                     # yaw rate that breaks ORB tracking
+
+trials_per_cell: 25
+seeds: [0, 1, 2, 3, 4]            # cycled across trials
+
+metrics:
+  - collision_count
+  - min_clearance_m
+  - acoustic_true_positive_rate   # alarm during real proximity
+  - acoustic_false_positive_rate  # alarm with no obstacle
+  - mission_completion_rate
+  - rotor_snr_db_at_mic           # characterizes the SNR floor
+  - extra_power_w                 # acoustic-on minus acoustic-off
+
+baselines:
+  - name: classical_only
+    description: VSLAM + MPC, no acoustic, no SLM
+  - name: batdeck_active_proxy
+    description: simulate active ultrasound from same geometry; shows
+                 what we would gain from emitting (paper figure: passive
+                 vs active proximity vs SNR)
