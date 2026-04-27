@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<!--
+  Placeholder world for gz-sim (Harmonic). Drop in a quadrotor model with
+  a forward camera, downward 1D rangefinder (gpu_lidar with single
+  beam), and IMU. Recommended starting point: the X3 model from
+  gz-sim's example assets, or the iris model from PX4-gazebo-models.
+-->
+<sdf version="1.10">
+  <world name="warehouse">
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+    <plugin filename="gz-sim-physics-system"
+            name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system"
+            name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system"
+            name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-sensors-system"
+            name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-imu-system"
+            name="gz::sim::systems::Imu"/>
+
+    <light type="directional" name="sun">
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>1 1 1 1</diffuse>
+      <direction>-0.3 -0.3 -1</direction>
+    </light>
+
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Ground Plane</uri>
+    </include>
+
+    <!-- TODO: include drone model with camera + range sensor + IMU -->
+  </world>
+</sdf>

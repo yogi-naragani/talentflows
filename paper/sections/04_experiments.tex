@@ -2,10 +2,12 @@
 \label{sec:experiments}
 
 \subsection{Setup}
-We evaluate in simulation across four scenarios: warehouse corridor,
+We evaluate in Gazebo Harmonic (\texttt{gz-sim 8}) bridged to ROS 2 via
+\texttt{ros\_gz\_bridge}. Four scenarios are tested: warehouse corridor,
 forest clearing, indoor SLAM dropout (textures masked mid-flight), and
 low-texture wall. Each scenario is run for 60\,s with synchronized
-30\,Hz monocular images, 50\,Hz 1D range, and 200\,Hz IMU.
+30\,Hz monocular images, 50\,Hz 1D range, and 200\,Hz IMU. Nodes are
+launched via \texttt{ros2 launch gps\_denied\_drone sim.launch.py}.
 
 \subsection{Ablations}
 We compare five configurations: full system; no range; no

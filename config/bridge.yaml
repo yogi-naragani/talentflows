@@ -1,0 +1,9 @@
+# Reference list of Gazebo <-> ROS 2 bridge mappings used by the launch
+# file. Kept here for documentation; the actual bridge args are in
+# launch/sim.launch.py so they take effect at runtime.
+bridges:
+  - { ros_topic: "/clock",            ros_type: "rosgraph_msgs/msg/Clock",         gz_type: "gz.msgs.Clock",     direction: "[" }
+  - { ros_topic: "/camera/image_raw", ros_type: "sensor_msgs/msg/Image",           gz_type: "gz.msgs.Image",     direction: "[" }
+  - { ros_topic: "/imu",              ros_type: "sensor_msgs/msg/Imu",             gz_type: "gz.msgs.IMU",       direction: "[" }
+  - { ros_topic: "/range/raw",        ros_type: "sensor_msgs/msg/Range",           gz_type: "gz.msgs.LaserScan", direction: "[" }
+  - { ros_topic: "/cmd/motor",        ros_type: "std_msgs/msg/Float32MultiArray",  gz_type: "gz.msgs.Actuators", direction: "]" }
