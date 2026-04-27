@@ -89,9 +89,10 @@ class RuleTreeAdvisor:
                 rationale="rule: range unreliable", confidence=0.7)
 
         # Stuck in hover for too long
-        if (observation.get("recent_modes", [-1:])
+        recent = observation.get("recent_modes") or []
+        if (recent
                 and observation.get("seconds_in_current_mode", 0.0) > HOVER_STALE_S
-                and observation.get("recent_modes")[-1] == "hover"):
+                and recent[-1] == "hover"):
             return ReasoningAction(
                 mode="search_features", yaw_strategy="sweep_search",
                 speed_cap_mps=0.5, replan=True,
