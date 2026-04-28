@@ -38,6 +38,14 @@ class TrialConfig:
 
 
 def run_trial(cfg: TrialConfig) -> TrialMetrics:
+    metrics, _ = run_trial_with_trajectory(cfg)
+    return metrics
+
+
+def run_trial_with_trajectory(cfg: TrialConfig
+                              ) -> tuple[TrialMetrics, np.ndarray]:
+    """Like run_trial, plus the per-control-tick position trajectory
+    (Nx3 array). Used by experiments/sim/visualize.py."""
     rng = np.random.default_rng(cfg.seed)
     world = World.scenario(cfg.scenario)
     schedule = DegradationSchedule.for_scenario(cfg.scenario)
@@ -162,8 +170,9 @@ def run_trial(cfg: TrialConfig) -> TrialMetrics:
         t += dt_ctrl
 
     completed = wp_idx >= len(waypoints)
-    ate = _ate(np.stack(pos_log), waypoints)
-    return TrialMetrics(
+    traj = np.stack(pos_log) if pos_log else np.zeros((0, 3))
+    ate = _ate(traj, waypoints)
+    metrics = TrialMetrics(
         scenario=cfg.scenario,
         advisor=cfg.advisor,
         seed=cfg.seed,
@@ -179,6 +188,7 @@ def run_trial(cfg: TrialConfig) -> TrialMetrics:
         waypoints_reached=wp_idx,
         extra={"use_acoustic": cfg.use_acoustic},
     )
+    return metrics, traj
 
 
 def _ate(traj: np.ndarray, waypoints: list[np.ndarray]) -> float:

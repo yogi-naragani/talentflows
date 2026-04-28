@@ -80,7 +80,8 @@ $\eta$        & acoustic gate         & $0.5$ \\
 
 \subsection{Results}
 
-\paragraph{Acoustic backup (Table~\ref{tab:acoustic}).}
+\paragraph{Acoustic backup
+(Table~\ref{tab:acoustic}, Fig.~\ref{fig:acoustic-traj}).}
 Under the central acoustic on/off comparison
 (\texttt{paper-acoustic-backup-VgEQR}, 10 seeds per cell, 30\,s
 trials, point-mass dynamics with controller-rate clearance
@@ -89,9 +90,28 @@ Gaussian noise to model the $-20$\,dB SNR floor of passive
 ego-noise reflectometry), enabling the acoustic backup eliminated
 collisions in all $40$ trials (100\% vs.\ 100\%) and raised
 minimum clearance from $0.154 \pm 0.008$\,m to $0.641 \pm
-0.037$\,m. The collision difference is unambiguous; the clearance
-difference is $\sim$13 standard deviations, well past any
-reasonable significance threshold.
+0.037$\,m. A paired Wilcoxon signed-rank test on the matched
+acoustic-on / acoustic-off trials gives $p < 10^{-6}$ for
+collisions and $p < 10^{-6}$ for minimum clearance ($n = 40$
+pairs, see \texttt{experiments/sim/paired\_stats.py}). The
+qualitative behavior is visible in
+Fig.~\ref{fig:acoustic-traj}: the acoustic-off trajectories
+converge into the wall and terminate at the collision marker,
+while the acoustic-on trajectories stop cleanly $\sim$0.6\,m
+before it.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/trajectory_acoustic_comparison}
+\caption{Top-down trajectories on \texttt{corridor\_white\_wall}
+(8 seeds, rule-tree advisor). Left: acoustic backup disabled --
+the drone collides with the wall at $x \approx 15$\,m on every
+seed. Right: backup enabled -- the controller-rate clearance
+constraint stops the drone $\sim$0.6\,m short. Mission completion
+is zero in both because the harness has no path planner, but the
+safety contrast is unambiguous.}
+\label{fig:acoustic-traj}
+\end{figure}
 
 \begin{table}[t]
 \caption{Acoustic backup, central comparison
