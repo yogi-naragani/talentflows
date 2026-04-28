@@ -39,14 +39,12 @@ SLM tick latency under contention with SLAM and MPC running. The full
 breakdown is in \texttt{docs/hardware\_target.md}.
 
 \subsection{Ablations}
-The integration branch carries five configurations:
-full~system, no~range, no~perception-cost, no~reasoner,
-classical-only (\texttt{experiments/configs/ablations.yaml}). Each
-companion paper branch focuses on a single sharp comparison:
-\textit{(acoustic\_on)} vs \textit{(acoustic\_off)} on the
-acoustic-backup branch, and \textit{(advisor=slm)} vs
-\textit{(advisor=rule\_tree)} on the SLM-advisor branch
-(\texttt{docs/BRANCHES.md}).
+The single comparison this paper isolates is the acoustic backup
+on/off contrast under scripted degradation, declared in
+\texttt{experiments/configs/paper\_acoustic.yaml}. Other components
+(ORB-SLAM3, the 1D rangefinder, the perception-aware MPC, the SLM
+advisor) are held fixed across both arms. The companion paper
+branches report separate ablations on those components.
 
 \subsection{Metrics}
 Absolute trajectory error (ATE-RMSE), mission completion rate,
@@ -148,6 +146,30 @@ backend, the MPC's perception cost, and the advisor's mode
 selection all interact more richly with scenario-specific
 degradation), and once a local planner is added so completion
 can succeed on the right side of the comparison.
+
+\paragraph{SNR-floor caveat.}
+The reported numbers use a synthetic acoustic model with additive
+Gaussian noise on per-direction proximity ($\sigma=0.04$). On a
+real drone the SNR floor is dominated by ego-noise at $\sim$-20\,dB
+relative to the reflected energy at our band of interest; the
+\texttt{experiments/snr\_analysis.py} bench harness sweeps reflector
+distance and rotor RPM and produces the calibration curve we report
+in the appendix. We mark this honestly: the simulation is generous
+on SNR. The qualitative behaviour (collisions $\to 0$ when the
+backup is enabled) survives a wide range of SNR perturbations;
+the absolute clearance numbers will shift modestly under hardware
+SNR.
+
+\paragraph{Comparison with active ranging.}
+BatDeck~\cite{batdeck2024} achieves the same end goal -- nano-drone
+obstacle avoidance -- with active ultrasound for $\sim$30\,mW. Our
+passive approach trades $\sim$0.5--1\,m of effective reach for: no
+emitter, no acoustic signature, and a microphone array that is
+already useful for other onboard audition tasks. The right framing
+is therefore complementary, not competitive: passive backup is
+preferable when emission is undesirable or when payload is
+constrained; active ranging is preferable when reach matters more
+than emission discipline.
 
 \begin{table}[t]
 \caption{Advisor comparison (\texttt{paper-slm-advisor-VgEQR}).
