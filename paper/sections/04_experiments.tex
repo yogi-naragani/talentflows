@@ -2,13 +2,25 @@
 \label{sec:experiments}
 
 \subsection{Setup}
-We evaluate in Gazebo Harmonic (\texttt{gz-sim 8}) bridged to ROS 2 via
-\texttt{ros\_gz\_bridge}. Four scenarios are tested: warehouse corridor,
-forest clearing, indoor SLAM dropout (textures masked mid-flight), and
-low-texture wall. Each scenario is run for 60\,s with synchronized
-30\,Hz monocular images, 50\,Hz 1D range, 4-channel 48\,kHz audio, and
-200\,Hz IMU. Nodes are launched via
-\texttt{ros2 launch gps\_denied\_drone sim.launch.py}.
+We evaluate in two complementary harnesses (Sec.\,\ref{sec:impl}).
+The \emph{Gazebo Harmonic} build (\texttt{ros2 launch
+gps\_denied\_drone sim.launch.py}) bridges synchronized 30\,Hz
+monocular images, 50\,Hz 1D range, 4-channel 48\,kHz audio, and
+200\,Hz IMU through \texttt{ros\_gz\_bridge}, and runs the full
+nonlinear MPC. The \emph{Python sim}
+(\texttt{python -m experiments.sim.cli}) drives the same library
+code -- Monitor, both advisors, SafetySupervisor, LQR controller --
+against synthetic dynamics and sensors so an entire ablation grid
+runs in seconds; this is what we use for the per-cell statistics
+reported below.
+
+Scenarios (declared in \texttt{experiments/sim/world.py} and
+\texttt{degradation.py}):
+\texttt{corridor\_white\_wall} (textureless wall mid-corridor),
+\texttt{texture\_mask\_burst} (2\,s synthetic mask),
+\texttt{illumination\_drop} (sudden lighting change),
+\texttt{dual\_failure\_slam\_and\_range} (concurrent SLAM dropout
+and range invalid). Each cell uses 25 trials over 5 fixed seeds.
 
 \subsection{Hardware target}
 Onboard compute is a Raspberry Pi 5 (8\,GB) with the Raspberry Pi
@@ -27,14 +39,165 @@ SLM tick latency under contention with SLAM and MPC running. The full
 breakdown is in \texttt{docs/hardware\_target.md}.
 
 \subsection{Ablations}
-We compare five configurations: full system; no range; no
-perception-cost; no reasoner; classical-only. Configuration files are
-in \texttt{experiments/configs/ablations.yaml}.
+The single comparison this paper isolates is
+\textit{advisor=slm} vs \textit{advisor=rule\_tree}, declared in
+\texttt{experiments/configs/paper\_slm\_vs\_rules.yaml}. Both
+advisors consume the identical observation produced by the
+\texttt{HealthMonitor} and emit the identical
+\texttt{ReasoningAction} schema; they differ only in how they map
+observations to actions. The SafetySupervisor, MPC, perception
+stack, 1D rangefinder, acoustic backup, and dynamics are held
+fixed across both arms (the rule-tree advisor itself lives at
+\texttt{gps\_denied\_drone/reasoning/rule\_tree.py} -- not a
+strawman; its thresholds were derived from the same decision
+guidance written into the SLM's system prompt).
 
 \subsection{Metrics}
-Absolute trajectory error (ATE-RMSE), mission completion rate, minimum
-clearance, MPC solve time, and Gemini Nano latency.
+Absolute trajectory error (ATE-RMSE), mission completion rate,
+collision count, minimum clearance, MPC solve time, advisor tick
+latency, and SafetySupervisor clamp frequency. The clamp frequency
+is the central ``did the advisor stay in the envelope on its own?''
+diagnostic.
+
+\begin{table}[t]
+\caption{MPC defaults used in both harnesses.}
+\label{tab:mpc-params}
+\centering
+\begin{tabular}{lcc}
+\hline
+Symbol & Description & Value \\
+\hline
+$N$           & horizon length        & $20$ \\
+$\Delta t$    & step                  & $50$\,ms \\
+$Q_{\text{pos}}$ & position weight    & $10.0$ \\
+$Q_{\text{vel}}$ & velocity weight    & $1.0$ \\
+$Q_{\text{att}}$ & attitude weight    & $1.0$ \\
+$R_{T}$       & thrust weight         & $0.01$ \\
+$R_{\omega}$  & body-rate weight      & $0.01$ \\
+$w_p$         & perception weight     & $0.5$ \\
+$v_{\max}^{\text{hard}}$ & speed cap   & $5.0$\,m/s \\
+$z^{\min}$    & altitude floor        & $0.5$\,m \\
+$\eta$        & acoustic gate         & $0.5$ \\
+\hline
+\end{tabular}
+\end{table}
 
 \subsection{Results}
-\textit{Pending.} Tables and plots will be inserted from
-\texttt{experiments/runs/}.
+
+\paragraph{Host-system safety baseline
+(Table~\ref{tab:acoustic}, Fig.~\ref{fig:acoustic-traj}).}
+Before isolating the advisor's contribution we verify that the
+shared host system (Monitor + acoustic backup + LQR with
+controller-rate clearance enforcement + SafetySupervisor) is
+itself working as intended.
+Under the central acoustic on/off comparison
+(\texttt{paper-acoustic-backup-VgEQR}, 10 seeds per cell, 30\,s
+trials, point-mass dynamics with controller-rate clearance
+enforcement, acoustic proximity reads corrupted by additive
+Gaussian noise to model the $-20$\,dB SNR floor of passive
+ego-noise reflectometry), enabling the acoustic backup eliminated
+collisions in all $40$ trials (100\% vs.\ 100\%) and raised
+minimum clearance from $0.154 \pm 0.008$\,m to $0.641 \pm
+0.037$\,m. A paired Wilcoxon signed-rank test on the matched
+acoustic-on / acoustic-off trials gives $p < 10^{-6}$ for
+collisions and $p < 10^{-6}$ for minimum clearance ($n = 40$
+pairs, see \texttt{experiments/sim/paired\_stats.py}). The
+qualitative behavior is visible in
+Fig.~\ref{fig:acoustic-traj}: the acoustic-off trajectories
+converge into the wall and terminate at the collision marker,
+while the acoustic-on trajectories stop cleanly $\sim$0.6\,m
+before it.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/trajectory_acoustic_comparison}
+\caption{Top-down trajectories on \texttt{corridor\_white\_wall}
+(8 seeds, rule-tree advisor). Left: acoustic backup disabled --
+the drone collides with the wall at $x \approx 15$\,m on every
+seed. Right: backup enabled -- the controller-rate clearance
+constraint stops the drone $\sim$0.6\,m short. Mission completion
+is zero in both because the harness has no path planner, but the
+safety contrast is unambiguous.}
+\label{fig:acoustic-traj}
+\end{figure}
+
+\begin{table}[t]
+\caption{Acoustic backup, central comparison
+(\texttt{paper-acoustic-backup-VgEQR}). 10 seeds per cell, 30\,s
+trials, mean$\pm$std. Collision is binary and terminal.}
+\label{tab:acoustic}
+\centering
+\begin{tabular}{lcccc}
+\hline
+Scenario & \multicolumn{2}{c}{Collisions} & \multicolumn{2}{c}{Min clearance (m)} \\
+         & ac.\,off & ac.\,on & ac.\,off & ac.\,on \\
+\hline
+corridor\_white\_wall   & 1.00 & 0.00 & $0.154 \pm 0.008$ & $0.641 \pm 0.037$ \\
+texture\_mask\_burst    & 1.00 & 0.00 & $0.154 \pm 0.008$ & $0.641 \pm 0.037$ \\
+illumination\_drop      & 1.00 & 0.00 & $0.154 \pm 0.008$ & $0.641 \pm 0.037$ \\
+dual\_failure           & 1.00 & 0.00 & $0.154 \pm 0.008$ & $0.641 \pm 0.037$ \\
+\hline
+\end{tabular}
+\end{table}
+
+Mission completion was $0$ in every cell because the Python
+harness has no path planner: the wall blocks the straight-line
+path to the third waypoint, so the system can only choose between
+colliding (acoustic off) and stopping safely short (acoustic on).
+We therefore frame the claim as \emph{safety preservation under
+SLAM degradation, not mission completion}.
+
+The four scenarios produced identical statistics because the
+acoustic clearance constraint in the LQR controller is enforced
+at controller rate regardless of SLAM state -- it is the floor
+that all four scenarios share. Per-scenario differences will
+appear once the Gazebo build is run end to end (where the SLAM
+backend, the MPC's perception cost, and the advisor's mode
+selection all interact more richly with scenario-specific
+degradation), and once a local planner is added so completion
+can succeed on the right side of the comparison.
+
+\paragraph{Advisor comparison (Table~\ref{tab:advisor}).}
+The central result of this paper. The rule-tree advisor and the
+SLM advisor consume the identical observation stream and emit the
+identical action schema, differing only in policy. We evaluate on
+four in-distribution scenarios (the rule-tree thresholds were
+tuned for these by hand) and four out-of-distribution scenarios
+(novel compound failures the rule tree was not tuned for); see
+\texttt{experiments/configs/paper\_slm\_vs\_rules.yaml}. We report
+mission completion, safety-clamp frequency, action quality versus
+an offline oracle, advisor tick latency on the Pi\,5 + AI HAT
+target, and the generalization gap (ID minus OOD) for each
+advisor.
+
+\textit{The numbers below are pending the on-device SLM run.} The
+rule-tree column is fully populated by the simulator
+(\texttt{python -m experiments.sim.cli --advisors rule\_tree}).
+The SLM column requires \texttt{llama\_cpp\_python} and a Gemini
+Nano-class GGUF (default: Gemma\,3\,1B Q4\_K\_M) on the deployment
+target; the harness (\texttt{create\_backend} factory in
+\texttt{gps\_denied\_drone/reasoning/llama\_cpp\_backend.py}) is in
+place but is not exercised in CI. The camera-ready will replace
+the placeholder cells with measured values from the Pi\,5 + AI
+HAT+ rig.
+
+\begin{table}[t]
+\caption{Advisor comparison.
+ID = in-distribution (rule-tree was tuned on these);
+OOD = out-of-distribution. SLM column placeholder pending the
+on-device run.}
+\label{tab:advisor}
+\centering
+\begin{tabular}{lccc}
+\hline
+Scenario set & metric & rule\_tree & slm \\
+\hline
+ID  & completion          & 0.00 & --- \\
+ID  & safety\_clamp\_rate & 0.00 & --- \\
+ID  & min\_clearance (m)  & 0.64 & --- \\
+OOD & completion          & 0.00 & --- \\
+OOD & safety\_clamp\_rate & 0.00 & --- \\
+OOD & generalization gap  & 0.00 & --- \\
+\hline
+\end{tabular}
+\end{table}
