@@ -142,13 +142,80 @@ ros2 launch gps_denied_drone sim.launch.py \
   out** that fits the Pi 5 + AI HAT power budget reported in
   `docs/hardware_target.md`.
 
+## Running on Gazebo Fortress (Humble default)
+
+Ubuntu 22.04 + ROS 2 Humble ships ros_gz paired with **Fortress**
+(`gz-sim 6`, launcher `ign gazebo`), not Harmonic. The primary world
+above (SDF 1.10, `gz-sim-*` plugin filenames, sibling-model sensors)
+will not parse on Fortress. Use the sibling assets instead:
+
+- `worlds/warehouse_fortress.sdf` -- same corridor and obstacle layout,
+  in SDF 1.6 with `ignition-gazebo-*` plugin filenames.
+- `worlds/models/x3_sensors/` -- a fork of the Fuel X3 quadrotor with
+  the forward camera, downward 1D `gpu_lidar`, and IMU baked into
+  `X3/base_link` (Fortress rejects cross-model fixed joints between an
+  included model and a sibling sensor model).
+- `launch/sim_fortress.launch.py` -- like `sim.launch.py` but uses the
+  Fortress world, sets `IGN_GAZEBO_RESOURCE_PATH` so the local
+  `x3_sensors` model is discoverable, bridges with `ignition.msgs.*`
+  type names, and (by default) launches the `synthetic_acoustic_node`
+  in place of `acoustic_node`.
+
+```bash
+ros2 launch gps_denied_drone sim_fortress.launch.py
+```
+
+## Synthetic acoustic backup
+
+`gps_denied_drone/nodes/synthetic_acoustic_node.py` is the Gazebo-only
+substitute for the real microphone pipeline. It subscribes to
+`/model/x3_sensors/odometry`, builds the `corridor_white_wall` World
+geometry from `experiments/sim/world.py`, and publishes
+`/acoustic/proximity`, `/acoustic/clearance`, and `/acoustic/confidence`
+at 20 Hz with the same shape and noise profile the Python harness
+uses. It is **not** a stand-in for the production sensor (no DSP path,
+no RPM-derived SNR floor) -- it exists so the `use_acoustic` ablation
+is meaningful in the Gazebo build until a microphone plugin lands.
+
+Disable with `synthetic_acoustic:=false`, which falls back to the real
+`acoustic_node` (which will sit idle until `/audio/raw` is fed).
+
+## Bag -> CSV
+
+`experiments/gazebo/bag_to_csv.py` converts a recorded run into the
+same per-trial row that `experiments.sim.runner.TrialMetrics.to_row`
+emits, so `aggregate.py` and `paired_stats.py` work unchanged on
+Gazebo data:
+
+```bash
+ros2 bag record -o runs/gz_run \\
+    /clock /camera/image_raw /imu /range/raw /range/filtered \\
+    /odom/fused /slam/tracking_ok /slam/inliers \\
+    /acoustic/proximity /acoustic/clearance /acoustic/confidence \\
+    /mission/waypoint /mission/mode /cmd/motor \\
+    /model/x3_sensors/odometry
+
+python -m experiments.gazebo.bag_to_csv runs/gz_run \\
+    --scenario corridor_white_wall --advisor rule_tree \\
+    --seed 0 --use-acoustic true --out runs/gz.csv
+python -m experiments.sim.aggregate runs/gz.csv
+```
+
+The adapter reads the bag's sqlite3 file directly (no `rosbag2_py`
+dependency) and uses `/model/x3_sensors/odometry` as ground-truth
+pose for ATE, min-clearance, and waypoint-progression metrics.
+`safety_clamp_*` and `advisor_ticks` are zero in the Gazebo row
+until the reasoning node logs its decisions onto a bridged ROS topic.
+
 ## Open todos for the Gazebo run (not blocking the paper)
 
 - Microphone-array plugin (option 1 in `warehouse.sdf`) so
-  acoustic_node has a real audio stream.
-- Bag -> CSV adapter so the same `aggregate.py` and
-  `paired_stats.py` scripts can run on Gazebo data.
+  the production acoustic_node has a real audio stream and the
+  synthetic substitute can be retired.
 - Switch `mpc_node` from the LQR fallback to a CasADi NLP for the
   perception-aware production MPC. The `PerceptionAwareCost` and
   `AcousticConstraint` types in `gps_denied_drone/control/mpc.py`
   are stubs ready to be filled.
+- Have the reasoning node publish `/mission/safety_clamped` and
+  `/mission/mode` events to the bag so `bag_to_csv.py` can fill in
+  the safety-clamp and advisor-tick columns.

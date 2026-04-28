@@ -7,7 +7,11 @@ package_name = "gps_denied_drone"
 setup(
     name=package_name,
     version="0.0.1",
-    packages=find_packages(exclude=["test", "experiments", "paper"]),
+    # experiments.sim.world is reused by the synthetic acoustic node so
+    # the Gazebo path has a non-empty backup-sensor stream until a real
+    # microphone plugin lands. The rest of experiments/ ships along for
+    # the ride; it's small.
+    packages=find_packages(exclude=["test", "paper"]),
     data_files=[
         ("share/ament_index/resource_index/packages",
             ["resource/" + package_name]),
@@ -16,6 +20,8 @@ setup(
         (os.path.join("share", package_name, "config"), glob("config/*.yaml")),
         (os.path.join("share", package_name, "docs"), glob("docs/*.md")),
         (os.path.join("share", package_name, "worlds"), glob("worlds/*.sdf")),
+        (os.path.join("share", package_name, "worlds", "models", "x3_sensors"),
+            glob("worlds/models/x3_sensors/*")),
     ],
     install_requires=["setuptools", "numpy", "scipy", "opencv-python", "casadi"],
     zip_safe=True,
@@ -32,6 +38,7 @@ setup(
             "mpc_node        = gps_denied_drone.nodes.mpc_node:main",
             "reasoning_node  = gps_denied_drone.nodes.reasoning_node:main",
             "acoustic_node   = gps_denied_drone.nodes.acoustic_node:main",
+            "synthetic_acoustic_node = gps_denied_drone.nodes.synthetic_acoustic_node:main",
         ],
     },
 )
