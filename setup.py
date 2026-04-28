@@ -32,6 +32,7 @@ setup(
             "mpc_node        = gps_denied_drone.nodes.mpc_node:main",
             "reasoning_node  = gps_denied_drone.nodes.reasoning_node:main",
             "acoustic_node   = gps_denied_drone.nodes.acoustic_node:main",
+            "px4_bridge      = gps_denied_drone.nodes.px4_bridge:main",
         ],
     },
 )

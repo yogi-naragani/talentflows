@@ -1,4 +1,50 @@
-# GPS-Denied Drone Navigation with Gemini Nano + MPC + Visual SLAM + 1D Range Sensor
+# GPS-Denied Drone Navigation Portfolio Project
+
+> 2-week sprint variant of the canonical 8-week plan. Project goal,
+> tool routing, and tech stack live in [`CLAUDE.md`](CLAUDE.md);
+> day-by-day execution in [`docs/sprint_2week.md`](docs/sprint_2week.md);
+> per-component status in [`_registry.md`](_registry.md). Per-component
+> contracts in [`contracts/`](contracts/).
+
+## At a glance
+
+| Layer | Tool | Status |
+|---|---|---|
+| OS / middleware | Ubuntu 22.04 + ROS 2 Humble | user-side (`Dockerfile` available) |
+| Simulator | Gazebo Harmonic + PX4 SITL (`gz_x500`) | user-side; world ready |
+| VIO | ORB-SLAM3 (mono-inertial); cv2.ORB proxy as fallback | proxy done; ORB-SLAM3 build user-side |
+| Trajectory eval | `evo` (Python) | script in `experiments/euroc/run_eval.py` |
+| Learned component | depth (default) or RL policy on Brev | scaffold pending |
+| Custom world | corridor + walls + X3 + camera + IMU + 1D range | done in `worlds/warehouse.sdf` |
+
+## What this repository carries today
+
+- A Python-only sim harness (`experiments/sim/`) that runs the
+  Monitor + advisor + SafetySupervisor + LQR pipeline end to end with
+  synthetic dynamics. Useful as a 7-test smoke harness for the
+  controller and reasoning layers.
+- A ROS 2 ament_python package (`gps_denied_drone/`) with six nodes
+  (perception, range, fusion, MPC, reasoning, acoustic) plus a
+  PX4 SITL bridge node (`px4_bridge`) for the mission loop.
+- A complete Gazebo world (`worlds/warehouse.sdf`) with X3 quadrotor
+  + camera + IMU + 1D range, plus the launch file that bridges
+  everything to ROS 2.
+- An EuRoC + `evo` evaluation script (`experiments/euroc/run_eval.py`)
+  with two backends: a real-ORB-SLAM3 shell-out and a cv2.ORB
+  feature-density proxy for Day-4 smoke-testing before ORB-SLAM3 is
+  built.
+- LaTeX paper skeleton (`paper/`).
+
+## Original project carryover (acoustic backup, on-device SLM)
+
+Earlier sessions explored a different research direction (passive
+acoustic ego-noise reflectometry + Gemini Nano-class on-device SLM
+supervisor). That work lives on its own paper branches
+(`claude/paper-acoustic-backup-VgEQR`, `claude/paper-slm-advisor-VgEQR`)
+and is decoupled from the portfolio sprint. The Python sim, the
+acoustic backup, and the trajectory-comparison figure remain
+runnable from the integration branch via `make headline` if you
+want to see them.
 
 Research repository for a paper on resilient drone navigation in
 GPS-denied environments. The system fuses five components:
