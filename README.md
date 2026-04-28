@@ -18,6 +18,18 @@ GPS-denied environments. The system fuses five components:
 The repo is a **ROS 2 ament_python package** with a **Gazebo (gz-sim)**
 simulation harness.
 
+## Reproduce the headline result
+
+One command, on a laptop, no Gazebo or ROS required:
+
+```
+make headline
+```
+
+Outputs the 40-trial ablation CSV, the trajectory comparison PNG,
+and the paired Wilcoxon p-values. See `docs/quickstart.md` for a
+walkthrough and what numbers to expect.
+
 ## Tested with
 
 - ROS 2 Humble or Jazzy
