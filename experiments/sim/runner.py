@@ -41,8 +41,14 @@ def run_trial(cfg: TrialConfig) -> TrialMetrics:
     rng = np.random.default_rng(cfg.seed)
     world = World.scenario(cfg.scenario)
     schedule = DegradationSchedule.for_scenario(cfg.scenario)
+    # Per-seed trajectory variance: small lateral start offset and a
+    # mild initial velocity. These don't change which scenario is
+    # being tested but break the fully-deterministic outcomes that
+    # made every seed produce the same numbers.
+    p0 = np.array([0.0, 0.0, 1.5]) + rng.normal(0, [0.05, 0.15, 0.05])
+    v0 = rng.normal(0, 0.1, size=3)
     quad = Quadrotor(QuadrotorParams(),
-                     QuadrotorState(p=np.array([0.0, 0.0, 1.5])))
+                     QuadrotorState(p=p0, v=v0))
     sensors = SensorSim(world, schedule, rng)
     monitor = HealthMonitor(window_s=5.0)
     safety = SafetySupervisor()

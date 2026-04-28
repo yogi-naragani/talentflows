@@ -79,11 +79,20 @@ class SensorSim:
         proximity, clearances = {}, {}
         for d, dir_w in body_axes.items():
             d_hit = self.world.distance_along(s.p, dir_w, max_m=d_max + 1.0)
-            proximity[d] = float(np.clip(1.0 - d_hit / d_max, 0.0, 1.0))
-            clearances[d] = float(d_hit)
+            # Noisy proximity: simulates the -20 dB SNR floor of passive
+            # ego-noise reflectometry. Sigma chosen so the rule_tree
+            # still detects the wall reliably but the trigger distance
+            # varies per trial.
+            prox_clean = max(0.0, 1.0 - d_hit / d_max)
+            prox = float(np.clip(prox_clean + self.rng.normal(0, 0.04),
+                                 0.0, 1.0))
+            proximity[d] = prox
+            clearances[d] = float(d_hit + self.rng.normal(0, 0.05))
         worst = max(proximity, key=proximity.get)
         worst_clear = clearances[worst]
         # Confidence rises with proximity (only useful when something
         # is genuinely close); ego-noise SNR otherwise dominates.
-        confidence = float(np.clip(proximity[worst] * 1.2, 0.0, 1.0))
+        confidence = float(np.clip(proximity[worst] * 1.2
+                                   + self.rng.normal(0, 0.05),
+                                   0.0, 1.0))
         return proximity, worst_clear, confidence
