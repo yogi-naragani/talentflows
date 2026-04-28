@@ -62,10 +62,12 @@ def run_trial(cfg: TrialConfig) -> TrialMetrics:
     next_advisor_t = 0.0
 
     collisions = 0
+    collided = False
     min_clearance = float("inf")
     safety_clamps = 0
     advisor_ticks = 0
     pos_log: list[np.ndarray] = []
+    current_mode = "nominal"
 
     t = 0.0
     for _ in range(n_ctrl):
@@ -101,6 +103,7 @@ def run_trial(cfg: TrialConfig) -> TrialMetrics:
             if report.clamped:
                 safety_clamps += 1
             monitor.set_mode(safe_action.mode)
+            current_mode = safe_action.mode
 
             # Apply advisor outputs to controller and waypoint nudge
             controller.set_speed_cap(safe_action.speed_cap_mps)
@@ -114,24 +117,41 @@ def run_trial(cfg: TrialConfig) -> TrialMetrics:
             elif safe_action.mode == "return":
                 waypoint = np.array([0.0, 0.0, 1.5])
 
-        # Controller tick (high rate)
+        # Controller tick (high rate). Acoustic clearance is enforced
+        # here, at controller rate, not at advisor rate -- the advisor
+        # alone is too slow to react to obstacles encountered between
+        # ticks. The use_acoustic ablation flag gates this entire path.
+        if cfg.use_acoustic:
+            controller.set_acoustic(
+                proximity=readings.acoustic_proximity,
+                confidence=readings.acoustic_confidence)
+        else:
+            controller.set_acoustic(None, 0.0)
         v_des, yaw_rate_des = controller.compute(
             p=quad.s.p, v=quad.s.v, yaw=quad.s.yaw, p_ref=waypoint)
         quad.step(dt_ctrl, v_des, yaw_rate_des)
 
-        # Bookkeeping
-        if world.collision(quad.s.p):
-            collisions += 1
+        # Bookkeeping. Collision is binary and terminal: point-mass
+        # dynamics have no contact response, so we end the trial on
+        # first contact rather than tallying ticks-inside-the-wall.
+        if not collided and world.collision(quad.s.p):
+            collisions = 1
+            collided = True
         min_clearance = min(min_clearance, world.min_clearance(quad.s.p))
         pos_log.append(quad.s.p.copy())
+        if collided:
+            break
 
-        # Waypoint progression
-        if (wp_idx < len(waypoints)
-                and np.linalg.norm(quad.s.p - waypoints[wp_idx])
-                < cfg.waypoint_tolerance_m):
-            wp_idx += 1
-            if wp_idx < len(waypoints):
-                waypoint = waypoints[wp_idx]
+        # Waypoint progression: only advance when the advisor wants
+        # forward motion. Hover / retreat / return / land suppress
+        # progression so the controller honors the advisor's intent.
+        if current_mode in ("nominal", "slow_advance", "search_features"):
+            if (wp_idx < len(waypoints)
+                    and np.linalg.norm(quad.s.p - waypoints[wp_idx])
+                    < cfg.waypoint_tolerance_m):
+                wp_idx += 1
+                if wp_idx < len(waypoints):
+                    waypoint = waypoints[wp_idx]
 
         t += dt_ctrl
 

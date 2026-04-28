@@ -28,7 +28,8 @@ SLAM_INLIER_OK = 100
 SLAM_INLIER_DEGRADED = 50
 RANGE_VALID_OK = 0.7
 ACOUSTIC_CONF_TRUST = 0.5
-ACOUSTIC_PROX_RETREAT = 0.7
+ACOUSTIC_PROX_RETREAT = 0.7      # threshold for triggering retreat
+ACOUSTIC_PROX_RESUME = 0.3        # hysteresis: stay in retreat above this
 RETREAT_DELTA_M = 0.6
 HOVER_STALE_S = 8.0
 BATTERY_RETURN_PCT = 25.0
@@ -42,6 +43,7 @@ class RuleTreeAdvisor:
 
     def decide(self, observation: dict) -> ReasoningAction:
         s = _signals_from_dict(observation)
+        recent = observation.get("recent_modes") or []
 
         # Battery overrides
         if s.battery_pct <= BATTERY_LAND_PCT:
@@ -53,17 +55,23 @@ class RuleTreeAdvisor:
                 mode="return", speed_cap_mps=3.0,
                 rationale="rule: battery<=return", confidence=1.0)
 
-        # Acoustic alarm gates everything else
-        if (s.acoustic_confidence > ACOUSTIC_CONF_TRUST
-                and s.acoustic_proximity is not None
-                and any(v > ACOUSTIC_PROX_RETREAT
-                        for v in s.acoustic_proximity.values())):
-            d = _retreat_delta(s)
-            return ReasoningAction(
-                mode="retreat", waypoint_delta_m=d, speed_cap_mps=0.8,
-                mpc_weights={"w_perception": 0.5, "Q_vel": 2.0},
-                sensor_trust={"slam": 0.2, "acoustic": 0.9, "range": 0.5},
-                rationale="rule: acoustic alarm", confidence=0.9)
+        # Acoustic alarm gates everything else. Hysteresis: trigger
+        # retreat at ACOUSTIC_PROX_RETREAT, stay in retreat as long
+        # as proximity is still above ACOUSTIC_PROX_RESUME.
+        if s.acoustic_confidence > ACOUSTIC_CONF_TRUST and s.acoustic_proximity:
+            max_prox = max(s.acoustic_proximity.values())
+            in_retreat = bool(recent) and recent[-1] == "retreat"
+            trigger = max_prox > ACOUSTIC_PROX_RETREAT or (
+                in_retreat and max_prox > ACOUSTIC_PROX_RESUME)
+            if trigger:
+                return ReasoningAction(
+                    mode="retreat",
+                    waypoint_delta_m=_retreat_delta(s),
+                    speed_cap_mps=0.8,
+                    mpc_weights={"w_perception": 0.5, "Q_vel": 2.0},
+                    sensor_trust={"slam": 0.2, "acoustic": 0.9, "range": 0.5},
+                    rationale="rule: acoustic alarm",
+                    confidence=0.9)
 
         # SLAM lost
         if not s.slam_tracking_ok:
@@ -89,7 +97,6 @@ class RuleTreeAdvisor:
                 rationale="rule: range unreliable", confidence=0.7)
 
         # Stuck in hover for too long
-        recent = observation.get("recent_modes") or []
         if (recent
                 and observation.get("seconds_in_current_mode", 0.0) > HOVER_STALE_S
                 and recent[-1] == "hover"):

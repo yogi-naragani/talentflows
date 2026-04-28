@@ -5,7 +5,25 @@
 Four modules run concurrently: visual SLAM (front + back end),
 1D-rangefinder filter, state estimator, and an MPC controller.
 A fifth module -- the Gemini Nano reasoner -- runs at low rate and
-publishes advisory mission updates.
+publishes advisory mission updates. Figure~\ref{fig:sysdiag}
+sketches the dataflow.
+
+\begin{figure}[t]
+\centering
+% Build paper/figures/system_diagram.tex separately to produce the PDF.
+% \includegraphics[width=0.95\linewidth]{figures/system_diagram}
+\fbox{\parbox{0.92\linewidth}{\centering\small
+   System diagram (see \texttt{paper/figures/system\_diagram.tex},
+   compile with standalone). Sensors $\to$ estimators $\to$ Monitor
+   $\to$ SLM advisor $\to$ SafetySupervisor $\to$ MPC $\to$ drone.
+   Acoustic clearance bypasses the advisor and reaches the MPC as
+   a hard inequality at the inner-loop rate.}}
+\caption{Dataflow. The advisor loop (green) is slow and contextual;
+the safety + MPC path (red, orange) is fast and verifiable. Acoustic
+clearance is enforced at controller rate (dashed blue), not at
+advisor rate.}
+\label{fig:sysdiag}
+\end{figure}
 
 \subsection{Metric scale from a 1D beam}
 Let $r_k$ be the measured range and $\hat r_k$ the SLAM-predicted range

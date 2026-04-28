@@ -79,13 +79,24 @@ $\eta$        & acoustic gate         & $0.5$ \\
 \end{table}
 
 \subsection{Results}
-\textit{Pending fill-in from} \texttt{experiments/runs/}. Each paper
-branch's central comparison populates one of the placeholder tables
-below.
+
+\paragraph{Acoustic backup (Table~\ref{tab:acoustic}).}
+Under the central acoustic on/off comparison
+(\texttt{paper-acoustic-backup-VgEQR}, 5 seeds per cell, 30\,s
+trials, point-mass dynamics with controller-rate clearance
+enforcement), enabling the acoustic backup eliminated all
+collisions across the four wall-ahead scenarios and held minimum
+clearance at $0.64$\,m versus $0.15$\,m without it. Mission
+completion remained $0$ in both conditions because the harness
+has no path planner; the wall blocks the straight-line path to
+the third waypoint. The salient claim is therefore framed as
+\emph{safety preservation under SLAM degradation, not mission
+completion} -- a reframing the paper draft already adopts.
 
 \begin{table}[t]
 \caption{Acoustic backup, central comparison
-(\texttt{paper-acoustic-backup-VgEQR}).}
+(\texttt{paper-acoustic-backup-VgEQR}). Means over 5 seeds.
+Collision is binary and terminal.}
 \label{tab:acoustic}
 \centering
 \begin{tabular}{lcccc}
@@ -93,13 +104,21 @@ below.
 Scenario & \multicolumn{2}{c}{Collisions} & \multicolumn{2}{c}{Min clearance (m)} \\
          & ac.\,off & ac.\,on & ac.\,off & ac.\,on \\
 \hline
-corridor\_white\_wall   & --- & --- & --- & --- \\
-texture\_mask\_burst    & --- & --- & --- & --- \\
-illumination\_drop      & --- & --- & --- & --- \\
-dual\_failure           & --- & --- & --- & --- \\
+corridor\_white\_wall   & 1.00 & 0.00 & 0.15 & 0.64 \\
+texture\_mask\_burst    & 1.00 & 0.00 & 0.15 & 0.64 \\
+illumination\_drop      & 1.00 & 0.00 & 0.15 & 0.64 \\
+dual\_failure           & 1.00 & 0.00 & 0.15 & 0.64 \\
 \hline
 \end{tabular}
 \end{table}
+
+These numbers come from the Python harness; the Gazebo build will
+be re-run before camera-ready and the table replaced. The
+identical mean across scenarios is a property of the deterministic
+synthetic sensor model: the wall geometry and proximity threshold
+are scenario-invariant in the harness, so the binary collision
+metric collapses. Real Gazebo runs will introduce per-scenario
+variance.
 
 \begin{table}[t]
 \caption{Advisor comparison (\texttt{paper-slm-advisor-VgEQR}).

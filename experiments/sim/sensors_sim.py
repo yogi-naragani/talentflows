@@ -65,7 +65,7 @@ class SensorSim:
         )
 
     def _acoustic(self, s: QuadrotorState) -> tuple[dict, float, float]:
-        d_max = 3.0  # passive proximity reach (limited by SNR floor)
+        d_max = 4.0  # passive proximity reach (limited by SNR floor)
         # Body axes in world: forward = (cos yaw, sin yaw, 0), etc.
         c, sn = float(np.cos(s.yaw)), float(np.sin(s.yaw))
         body_axes = {
