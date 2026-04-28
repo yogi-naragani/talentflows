@@ -25,7 +25,7 @@ from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Range
 from geometry_msgs.msg import PoseStamped
-from std_msgs.msg import Bool, Float32, Float32MultiArray, String
+from std_msgs.msg import Bool, Float32, Float32MultiArray, Int32, String
 
 from gps_denied_drone.reasoning.gemini_nano import (
     GeminiNanoClient, VALID_WEIGHTS, VALID_SENSORS,
@@ -75,6 +75,7 @@ class ReasoningNode(Node):
         self.create_subscription(Odometry, "/odom/fused", self._set_odom, 10)
         self.create_subscription(Range, "/range/filtered", self._set_range, 10)
         self.create_subscription(Bool, "/slam/tracking_ok", self._set_slam_ok, 10)
+        self.create_subscription(Int32, "/slam/inliers", self._set_slam_inliers, 10)
         self.create_subscription(PoseStamped,
                                  self.get_parameter("waypoint_in").value,
                                  self._set_wp, 10)
@@ -122,6 +123,9 @@ class ReasoningNode(Node):
     def _set_slam_ok(self, msg):
         self._slam_ok = bool(msg.data)
         self.monitor.push_slam(self._slam_ok, self._slam_inliers)
+
+    def _set_slam_inliers(self, msg):
+        self._slam_inliers = int(msg.data)
     def _set_wp(self, msg): self._wp_in = msg
     def _set_ac_prox(self, msg):
         if len(msg.data) >= len(DIRECTIONS):

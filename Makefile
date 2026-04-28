@@ -15,10 +15,13 @@ SEEDS     := 0 1 2 3 4 5 6 7 8 9
 SCENARIOS := corridor_white_wall texture_mask_burst illumination_drop dual_failure_slam_and_range
 DURATION  := 30
 
-.PHONY: test ablation figure stats headline paper-pdf clean
+.PHONY: test gazebo-lint ablation figure stats headline paper-pdf clean
 
 test:
 	$(PY) -m pytest tests/
+
+gazebo-lint:
+	$(PY) -m pytest tests/test_gazebo_assets.py -v
 
 $(RUNS_DIR):
 	mkdir -p $(RUNS_DIR)

@@ -1,9 +1,25 @@
 <?xml version="1.0"?>
 <!--
-  Placeholder world for gz-sim (Harmonic). Drop in a quadrotor model with
-  a forward camera, downward 1D rangefinder (gpu_lidar with single
-  beam), and IMU. Recommended starting point: the X3 model from
-  gz-sim's example assets, or the iris model from PX4-gazebo-models.
+  GPS-denied warehouse scene for gz-sim (Harmonic).
+
+  Layout matches the Python harness (experiments/sim/world.py): a
+  corridor 30 m long, walls at y = +/- 3 m, and a partial wall at
+  x = 15..16, y = -2..2 that the drone must detect via the acoustic
+  backup. Three waypoints on the ground at x = 5, 14, 18 (the third
+  is past the wall, on purpose).
+
+  The drone is the X3 quadcopter from gz-sim's example assets,
+  augmented with:
+    - forward camera (30 Hz) on /camera/image_raw
+    - downward 1D rangefinder on /range/raw
+    - IMU on /imu
+    - 4-channel mic ego-noise model on /audio/raw (custom plugin;
+      placeholder if the plugin is not available)
+
+  Bridge mappings live in launch/sim.launch.py.
+
+  The "include from fuel" URIs require a network connection on first
+  run (gz-sim caches models under ~/.gz/fuel).
 -->
 <sdf version="1.10">
   <world name="warehouse">
@@ -27,6 +43,7 @@
     <light type="directional" name="sun">
       <pose>0 0 10 0 0 0</pose>
       <diffuse>1 1 1 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
       <direction>-0.3 -0.3 -1</direction>
     </light>
 
@@ -34,6 +51,110 @@
       <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Ground Plane</uri>
     </include>
 
-    <!-- TODO: include drone model with camera + range sensor + IMU -->
+    <!-- Corridor walls (y = +/- 3 m, full corridor length). -->
+    <model name="wall_left"><static>true</static>
+      <pose>15 -2.5 2.5 0 0 0</pose>
+      <link name="link"><collision name="c"><geometry><box>
+        <size>30 1.0 5.0</size></box></geometry></collision>
+      <visual name="v"><geometry><box>
+        <size>30 1.0 5.0</size></box></geometry>
+      <material><ambient>0.8 0.8 0.8 1</ambient></material></visual></link>
+    </model>
+    <model name="wall_right"><static>true</static>
+      <pose>15  2.5 2.5 0 0 0</pose>
+      <link name="link"><collision name="c"><geometry><box>
+        <size>30 1.0 5.0</size></box></geometry></collision>
+      <visual name="v"><geometry><box>
+        <size>30 1.0 5.0</size></box></geometry>
+      <material><ambient>0.8 0.8 0.8 1</ambient></material></visual></link>
+    </model>
+
+    <!-- The wall the drone must detect via acoustic backup. Width
+         and y-extent match World.scenario("corridor_white_wall"). -->
+    <model name="wall_ahead"><static>true</static>
+      <pose>15.5 0 2.5 0 0 0</pose>
+      <link name="link"><collision name="c"><geometry><box>
+        <size>1.0 4.0 5.0</size></box></geometry></collision>
+      <visual name="v"><geometry><box>
+        <size>1.0 4.0 5.0</size></box></geometry>
+      <material><ambient>0.95 0.95 0.95 1</ambient></material></visual></link>
+    </model>
+
+    <!-- Drone: X3 quadrotor with sensors. The X3 model already ships
+         with a flight controller plugin; we add the perception
+         sensors here. -->
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/X3 UAV</uri>
+      <name>drone</name>
+      <pose>0 0 1.5 0 0 0</pose>
+    </include>
+
+    <!-- Forward camera, IMU, and 1D rangefinder are attached as a
+         sibling model so they ride with the drone via a fixed joint.
+         An alternative is to fork the X3 model and inline the
+         sensors; that is left for a hardware-specific overlay. -->
+    <model name="drone_sensors">
+      <pose relative_to="drone::base_link">0 0 0 0 0 0</pose>
+      <link name="sensor_link">
+        <pose>0 0 0 0 0 0</pose>
+        <inertial>
+          <mass>0.001</mass>
+          <inertia><ixx>1e-6</ixx><iyy>1e-6</iyy><izz>1e-6</izz></inertia>
+        </inertial>
+
+        <sensor name="front_camera" type="camera">
+          <pose>0.10 0 0 0 0 0</pose>
+          <topic>camera/image_raw</topic>
+          <update_rate>30</update_rate>
+          <camera>
+            <horizontal_fov>1.5</horizontal_fov>
+            <image><width>640</width><height>480</height>
+              <format>R8G8B8</format></image>
+            <clip><near>0.05</near><far>50</far></clip>
+          </camera>
+        </sensor>
+
+        <sensor name="rangefinder" type="gpu_lidar">
+          <!-- Single-beam emulation via a 1x1 lidar pointing -z. -->
+          <pose>0 0 -0.05 0 1.5708 0</pose>
+          <topic>range/raw</topic>
+          <update_rate>50</update_rate>
+          <ray>
+            <scan>
+              <horizontal><samples>1</samples>
+                <min_angle>0</min_angle><max_angle>0</max_angle></horizontal>
+              <vertical><samples>1</samples>
+                <min_angle>0</min_angle><max_angle>0</max_angle></vertical>
+            </scan>
+            <range><min>0.05</min><max>30.0</max><resolution>0.01</resolution></range>
+          </ray>
+        </sensor>
+
+        <sensor name="imu_sensor" type="imu">
+          <topic>imu</topic>
+          <update_rate>200</update_rate>
+        </sensor>
+      </link>
+      <joint name="sensor_to_drone" type="fixed">
+        <parent>drone::base_link</parent>
+        <child>drone_sensors::sensor_link</child>
+      </joint>
+    </model>
+
+    <!--
+      Acoustic mic array + ego-noise model.
+      gz-sim has no built-in microphone sensor at the time of writing.
+      Two options for the camera-ready build:
+        1. Replace this comment with a custom <plugin> wrapping a
+           ray-tracing acoustic simulator (e.g. RAVEN or pyroomacoustics
+           bridged via ros_gz_bridge).
+        2. Run the acoustic_node against a synthetic audio stream
+           generated from drone state + obstacle distances (matches
+           experiments/sim/sensors_sim.SensorSim._acoustic).
+      Until the plugin is wired in, the acoustic_node consumes
+      /audio/raw published by an external bridge or a stub generator;
+      the ablation knob `use_acoustic` in launch/sim.launch.py decides
+      whether the topic is connected at all.
+    -->
   </world>
 </sdf>
