@@ -30,6 +30,7 @@ from std_msgs.msg import Bool, Float32, Float32MultiArray, String
 from gps_denied_drone.reasoning.gemini_nano import (
     GeminiNanoClient, VALID_WEIGHTS, VALID_SENSORS,
 )
+from gps_denied_drone.reasoning.rule_tree import RuleTreeAdvisor
 from gps_denied_drone.reasoning.monitor import HealthMonitor, signals_to_json_dict
 from gps_denied_drone.reasoning.safety import SafetySupervisor
 from gps_denied_drone.sensors.acoustic_sensor import DIRECTIONS
@@ -42,8 +43,20 @@ class ReasoningNode(Node):
         self.declare_parameter("waypoint_in",  "/mission/waypoint_raw")
         self.declare_parameter("waypoint_out", "/mission/waypoint")
         self.declare_parameter("slm_backend", "stub")
+        # Central ablation knob: "slm" or "rule_tree". The reasoning
+        # node intentionally accepts both so paper experiments can swap
+        # the advisor while keeping the rest of the stack identical.
+        self.declare_parameter("advisor", "slm")
 
-        self.client = GeminiNanoClient(backend=None)  # plug in via factory
+        advisor = str(self.get_parameter("advisor").value).lower()
+        if advisor == "rule_tree":
+            self.client = RuleTreeAdvisor()
+            self.get_logger().info("advisor: rule_tree (baseline)")
+        else:
+            backend = self._build_slm_backend()
+            self.client = GeminiNanoClient(backend=backend)
+            self.get_logger().info(
+                f"advisor: slm (backend={'real' if backend else 'stub'})")
         self.monitor = HealthMonitor(window_s=5.0)
         self.safety = SafetySupervisor()
 
@@ -84,6 +97,22 @@ class ReasoningNode(Node):
 
         self.create_timer(
             1.0 / float(self.get_parameter("rate_hz").value), self.tick)
+
+    def _build_slm_backend(self):
+        """Resolve the slm_backend parameter to a backend object, or
+        None if unavailable. Falls back gracefully if llama_cpp_python
+        is not installed or the configured GGUF is missing."""
+        name = str(self.get_parameter("slm_backend").value)
+        if name in ("stub", "", "none"):
+            return None
+        try:
+            from gps_denied_drone.reasoning.llama_cpp_backend import create_backend
+            return create_backend(name)
+        except Exception as e:
+            self.get_logger().warn(
+                f"slm_backend={name!r} unavailable ({e}); "
+                "falling back to stub.")
+            return None
 
     # --- subs ---
     def _set_odom(self, msg): self._odom = msg
